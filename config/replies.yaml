@@ -1,0 +1,36 @@
+# reply handling (CLAUDE.md section 10). no reply to a human is ever sent automatically.
+# the only automatic action is honoring an opt out (suppression), plus stopping or
+# pausing the sequence.
+
+categories:
+  interested: they want to talk or want the map
+  meeting_request: they ask for a call or give times
+  question: they ask something before deciding (price, how it works, who we are)
+  not_now: interested later, or bad timing right now
+  not_interested: a clear no
+  wrong_person_referral: not their area, they point to someone else
+  out_of_office: an auto reply saying they are away
+  unsubscribe: they ask to be removed or to stop
+  auto_bounce: a delivery failure from a mail server
+  asks_if_automated: they ask if this is automated or written by AI
+
+urgent: [interested, meeting_request, question, asks_if_automated]   # alert abdul, 15 min target in EST hours
+needs_draft: [interested, meeting_request, question, asks_if_automated, not_now, wrong_person_referral, unsubscribe]
+
+min_confidence: 0.7          # below this the reply goes to abdul, nothing is acted on
+not_now_default_days: 45     # CLAUDE.md: 30 to 60 days
+ooo_default_days: 7          # when an out of office gives no return date
+suppress_not_interested: true   # my default: a clear no is never contacted again
+
+# instant rules, checked before any classification. lowercase substring match on the new
+# text of the reply (quoted history is stripped first).
+instant:
+  bounce_from: [mailer-daemon, postmaster, mail delivery subsystem]
+  bounce_subject: [delivery status notification, undeliverable, delivery failure, returned mail, failure notice]
+  unsubscribe: [unsubscribe, remove me, stop emailing, take me off, stop contacting, opt out, opt me out]
+  out_of_office_subject: [out of office, automatic reply, auto reply, autoreply, ooo]
+  out_of_office_body: [out of the office, out of office, on annual leave, on leave until, away until, limited access to email]
+
+# numbers a draft may contain besides those in the lead's facts or the reply itself
+draft_allowed_numbers: ["15", "2,000", "2000", "30"]
+unsubscribe_confirmation: "done, you're removed. sorry about that."

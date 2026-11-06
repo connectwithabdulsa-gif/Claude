@@ -42,6 +42,8 @@ def _status(lead, seq, email1, exported) -> tuple[str, str]:
             return "stopped", f"stopped: {seq['stop_reason'] or 'no reason'}"
         if seq["status"] == "completed":
             return "completed", "sequence completed"
+        if seq["status"] == "paused":
+            return "paused", f"paused until {seq['paused_until']} (out of office)"
         return "in sequence", "in sequence"
     if email1:
         if email1["review"] == "approved":

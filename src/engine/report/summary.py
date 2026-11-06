@@ -39,6 +39,10 @@ def collect(conn) -> dict:
             "SELECT date(sent_at) AS day, COUNT(*) AS n FROM sends GROUP BY day ORDER BY day DESC LIMIT 30")][::-1],
         "suppression": one("SELECT COUNT(*) FROM suppression"),
         "notes": one("SELECT COUNT(*) FROM notes"),
+        "replies_by_category": group("SELECT COALESCE(category, status), COUNT(*) FROM replies GROUP BY 1"),
+        "replies_urgent_waiting": one("SELECT COUNT(*) FROM replies WHERE draft_status='pending' AND category IN"
+                                      " ('interested','meeting_request','question','asks_if_automated')"),
+        "replies_needs_abdul": one("SELECT COUNT(*) FROM replies WHERE status IN ('needs_abdul','unmatched')"),
         "explorium_credits": one("SELECT SUM(credits) FROM api_calls WHERE provider='explorium'"),
         "anthropic_usd": round(one("SELECT SUM(cost_usd) FROM messages"), 4),
         "alerts": [dict(r) for r in conn.execute(
@@ -62,6 +66,8 @@ def text(s: dict) -> str:
         f"sends        {s['sends']} ({_kv(s['sends_by_mode'])})   by step {_kv(s['sends_by_step'])}",
         f"outcomes     {_kv(s['outcomes'])}   bounce {s['bounce_pct']}% (target under 2%)   reply {s['reply_pct']}%",
         f"spend        explorium {s['explorium_credits']} credits, anthropic ${s['anthropic_usd']}",
+        f"replies      {_kv(s.get('replies_by_category', {}))}   urgent waiting {s.get('replies_urgent_waiting', 0)}"
+        f"   needs abdul {s.get('replies_needs_abdul', 0)}",
         f"suppression  {s['suppression']} entries",
     ]
     for m in s["mailboxes"]:
@@ -118,7 +124,9 @@ def since_text(new: dict, prev: dict | None, now_dt: datetime | None = None) -> 
     row("email 1", f"written {w:+d}, review " + _signed(_dict_delta(new["email1_review"], old["email1_review"])))
     row("sends", f"{new['sends'] - old['sends']:+d}  by step " + _signed(_dict_delta(new["sends_by_step"], old["sends_by_step"])))
     out_d = _dict_delta(new["outcomes"], old["outcomes"])
-    row("replies", f"{out_d.get('reply', 0):+d}")
+    row("replies", f"{out_d.get('reply', 0):+d}   by category "
+                   + _signed(_dict_delta(new.get("replies_by_category", {}), old.get("replies_by_category", {})))
+                   + f"   urgent waiting now {new.get('replies_urgent_waiting', 0)}")
     row("bounces", f"{out_d.get('bounce', 0):+d}   unsubscribes {out_d.get('unsubscribe', 0):+d}   complaints {out_d.get('complaint', 0):+d}")
     row("sequences", _signed(_dict_delta(new["sequences"], old["sequences"])))
     was_paused = {m["address"] for m in old["mailboxes"] if m["paused"]}

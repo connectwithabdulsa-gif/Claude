@@ -170,6 +170,16 @@ CREATE TABLE IF NOT EXISTS api_calls (
   run_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS reply_exports (
+  id INTEGER PRIMARY KEY,
+  export_id TEXT NOT NULL,
+  reply_id INTEGER NOT NULL REFERENCES replies(id),
+  ctx_json TEXT NOT NULL,         -- what was handed out, checked again on import
+  created_at TEXT NOT NULL,
+  imported_at TEXT,
+  UNIQUE (export_id, reply_id)
+);
+
 CREATE TABLE IF NOT EXISTS notes (
   id INTEGER PRIMARY KEY,
   lead_id INTEGER NOT NULL REFERENCES leads(id),
@@ -239,7 +249,12 @@ def now() -> str:
 # columns added after the first schema. connect() adds them to older databases.
 MIGRATIONS = {
     "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT",
-              "fallback": "INTEGER"},
+              "fallback": "INTEGER", "follow_up_at": "TEXT", "referred_by_lead_id": "INTEGER"},
+    "replies": {"message_id": "TEXT", "in_reply_to": "TEXT", "matched_by": "TEXT", "status": "TEXT",
+                "reason": "TEXT", "follow_up_at": "TEXT", "referral_json": "TEXT", "export_id": "TEXT",
+                "draft_status": "TEXT", "reviewed_at": "TEXT", "review_note": "TEXT", "to_address": "TEXT",
+                "check_reasons": "TEXT", "classified_by": "TEXT"},
+    "sequence_state": {"paused_until": "TEXT"},
     "sends": {"lead_id": "INTEGER", "step": "INTEGER", "message_id_header": "TEXT", "outcome": "TEXT",
               "outcome_at": "TEXT", "headers_json": "TEXT"},
     "mailboxes": {"live_from": "TEXT"},

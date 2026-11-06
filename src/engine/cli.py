@@ -23,6 +23,8 @@ suppress_app = typer.Typer(no_args_is_help=True, help="manage the suppression li
 app.add_typer(suppress_app, name="suppress")
 mailbox_app = typer.Typer(no_args_is_help=True, help="sending mailboxes (secondary domains only).")
 app.add_typer(mailbox_app, name="mailboxes")
+replies_app = typer.Typer(no_args_is_help=True, help="replies: ingest, sort, draft, review. never sends.")
+app.add_typer(replies_app, name="replies")
 signals_app = typer.Typer(no_args_is_help=True, help="signal engine: refresh, pick, list.")
 app.add_typer(signals_app, name="signals")
 
@@ -547,6 +549,141 @@ def dashboard(
     path = out or ROOT / "data" / "dashboard.html"
     d = write_dashboard(_conn(), CONFIG_DIR, path, include_dry_run)
     typer.echo(f"dashboard written to {path}  ({len(d['prospects'])} prospects, {d['mode']} data)")
+
+
+def _ingest(source):
+    from .replies import ingest as ri
+    from .sequence import scheduler as sch
+    conn = _conn()
+    seq_cfg, rules = sch.load_cfg(CONFIG_DIR), ri.load_rules(CONFIG_DIR)
+    counts = {}
+    for r in source.replies():
+        res = ri.ingest_one(conn, seq_cfg, rules, r)
+        key = res.category or res.status
+        counts[key] = counts.get(key, 0) + 1
+        for a in res.alerts:
+            typer.echo(f"ALERT {a}")
+    typer.echo("ingested  " + "  ".join(f"{k} {v}" for k, v in counts.items()))
+    typer.echo("sequences of every matched reply were stopped (out of office: paused). next: engine replies export")
+
+
+@replies_app.command("add")
+def replies_add(
+    from_: str = typer.Option(..., "--from", help="who wrote it"),
+    text: str = typer.Option(..., help="the reply text"),
+    subject: str = typer.Option(""),
+    in_reply_to: str = typer.Option(None, help="Message-ID it answers, if you have it"),
+    received_at: str = typer.Option(None, help="ISO time, default now"),
+):
+    """add one reply by hand (paste it in)."""
+    from .replies.base import FakeReplySource
+    _ingest(FakeReplySource([{"from": from_, "body": text, "subject": subject, "in_reply_to": in_reply_to,
+                              "received_at": received_at or now()}]))
+
+
+@replies_app.command("ingest")
+def replies_ingest(path: Path = typer.Argument(..., exists=True, dir_okay=False)):
+    """read a json list of replies (from, subject, body, received_at, message_id, in_reply_to)."""
+    from .replies.base import FileReplySource
+    _ingest(FileReplySource(path))
+
+
+@replies_app.command("export")
+def replies_export(out_dir: Path = typer.Option(None)):
+    """session mode: write a brief for Claude to sort and draft. nothing leaves the machine."""
+    from .paths import ROOT
+    from .replies import classify as rc
+    conn = _conn()
+    path, n = rc.export_batch(conn, rc.load_cfg(CONFIG_DIR), out_dir or ROOT / "data" / "exports")
+    typer.echo(f"exported {n} replies to {path}" if n else "no replies waiting to be sorted")
+    if n:
+        typer.echo("ask Claude in the session to sort them, then: engine replies import <answer file>")
+
+
+@replies_app.command("import")
+def replies_import(path: Path = typer.Argument(..., exists=True, dir_okay=False)):
+    """read the answers back. every one is checked before anything is acted on."""
+    from .replies import classify as rc
+    r = rc.import_file(_conn(), rc.load_cfg(CONFIG_DIR), path)
+    typer.echo(f"imported  classified {r['classified']}  needs abdul {r['needs_abdul']}"
+               + (f"  skipped {r['unknown'] + r['already']}" if r["unknown"] or r["already"] else ""))
+    typer.echo("next: engine replies inbox")
+
+
+@replies_app.command("classify-api")
+def replies_classify_api(yes: bool = typer.Option(False, "--yes", help="really call the api")):
+    """api mode: Claude Haiku sorts new replies (costs money). needs --yes."""
+    from .replies import classify as rc
+    from .personalize.llm import AnthropicLLM
+    cfg = rc.load_cfg(CONFIG_DIR)
+    if not yes:
+        n = _conn().execute("SELECT COUNT(*) FROM replies WHERE status='new'").fetchone()[0]
+        typer.echo(f"{n} replies would go to {cfg['llm']['classifier']['model']}. nothing sent. add --yes to run.")
+        return
+    r = rc.classify_api(_conn(), cfg, AnthropicLLM(cfg["llm"]))
+    typer.echo(f"classified {r['classified']}  needs abdul {r['needs_abdul']}")
+
+
+@replies_app.command("inbox")
+def replies_inbox(limit: int = typer.Option(30)):
+    """urgent first, then what needs you, then what is waiting to be sorted."""
+    import json as _j
+    from datetime import datetime, timezone
+    from .replies import classify as rc
+    conn = _conn()
+    rows = rc.inbox(conn, rc.load_cfg(CONFIG_DIR), limit)
+    if not rows:
+        typer.echo("inbox empty")
+        return
+    group = None
+    for r in rows:
+        if r["group"] != group:
+            group = r["group"]
+            typer.echo(f"\n==== {group.upper()} ====")
+        try:
+            got = datetime.fromisoformat(r["received_at"].replace("Z", "+00:00"))
+            secs = (datetime.now(timezone.utc) - got).total_seconds()
+            age_txt = f"received {got.strftime('%Y-%m-%d %H:%M')} utc" + (
+                f", {int(secs // 3600)}h {int(secs % 3600 // 60)}m ago" if secs >= 0 else "")
+        except ValueError:
+            age_txt = ""
+        who = f"{r['first_name'] or ''} {r['last_name'] or ''}".strip() or r["from_address"]
+        typer.echo(f"#{r['id']}  {who} ({r['company'] or 'no match'})  {age_txt}  matched by {r['matched_by']}")
+        typer.echo(f"   category {r['category'] or '-'}  confidence {r['confidence'] if r['confidence'] is not None else '-'}"
+                   f"  by {r['classified_by'] or '-'}  draft {r['draft_status'] or '-'}")
+        if r["reason"]:
+            typer.echo(f"   why: {r['reason']}")
+        for x in _j.loads(r["check_reasons"] or "[]"):
+            typer.echo(f"   CHECK: {x}")
+        from .replies.ingest import new_text
+        typer.echo("   they wrote: " + " ".join(new_text(r["body"] or "").split())[:220])
+        if r["draft"]:
+            typer.echo("   draft:")
+            for line in r["draft"].splitlines():
+                typer.echo(f"     {line}")
+    typer.echo("\napprove: engine replies approve <id>   hold: engine replies hold <id> --note '...'   "
+               "edit: engine replies edit <id> --file draft.txt")
+
+
+@replies_app.command("approve")
+def replies_approve(reply_id: int, note: str = typer.Option(None)):
+    """approve a draft. it is queued for sending in phase 8, nothing is sent now."""
+    from .replies import classify as rc
+    typer.echo(rc.set_draft(_conn(), reply_id, "approved", note))
+
+
+@replies_app.command("hold")
+def replies_hold(reply_id: int, note: str = typer.Option(None)):
+    from .replies import classify as rc
+    typer.echo(rc.set_draft(_conn(), reply_id, "held", note))
+
+
+@replies_app.command("edit")
+def replies_edit(reply_id: int, file: Path = typer.Option(..., exists=True, dir_okay=False)):
+    """replace a draft with your own text. the same checks run on it."""
+    from .replies import classify as rc
+    typer.echo(rc.set_draft(_conn(), reply_id, "edit", new_draft=file.read_text().strip(),
+                            cfg=rc.load_cfg(CONFIG_DIR)))
 
 
 @app.command()

@@ -78,6 +78,13 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
     sc = cfg["sending"]
     plan = DayPlan(day)
     wd = DAYS[day.weekday()]
+    # out of office pauses end: the next step goes out from the return date, never earlier
+    d = day.isoformat()
+    for r in conn.execute("SELECT lead_id FROM sequence_state WHERE status='paused' AND paused_until<=?", (d,)).fetchall():
+        conn.execute("UPDATE sequence_state SET status='active', paused_until=NULL, updated_at=?,"
+                     " next_due=CASE WHEN next_due IS NULL OR next_due < ? THEN ? ELSE next_due END WHERE lead_id=?",
+                     (now(), d, d, r["lead_id"]))
+        log_event(conn, "sequence_resumed", "lead", r["lead_id"], "out of office ended")
     mbs = [dict(r) for r in conn.execute("SELECT * FROM mailboxes ORDER BY id")]
     remaining = {}
     cursor = {}                                       # mailbox -> last send time (utc)

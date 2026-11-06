@@ -40,6 +40,11 @@ engine dashboard                          # local html at data/dashboard.html: t
                                           # filters, full history per person. never uploaded
 engine dashboard --include-dry-run        # after going live, also show simulated sends
 engine note 42 "called, wants the map"    # note on a prospect (id or email), shows in the dashboard
+engine replies ingest replies.json        # or: engine replies add --from x@y.com --text "..."
+engine replies export                     # session mode: brief for Claude to sort and draft
+engine replies import data/exports/reply-answers.json   # every answer checked first
+engine replies inbox                      # urgent first, then what needs you
+engine replies approve 3                  # queued for phase 8 sending, nothing is sent now
 ```
 
 a `SessionEnd` hook in `.claude/settings.json` runs `engine summary` at the end of every Claude Code
@@ -71,7 +76,7 @@ fake domains all end in `.test`, so they can never be real companies.
 | 4 | email 1 writer + QA (rules + Claude pass), fallback, hold, cost cap | done, untested live |
 | 4.5 | session writing mode: export brief, write in Claude Code, import, review | done |
 | 5 | 4 step sequence, scheduler, caps + ramp, stop rules, auto pause, simulator | done |
-| 6 | replies | |
+| 6 | replies: match, instant stop/suppress/pause, session sorting + drafts, inbox review | done |
 | 7 | linkedin list, reports, a/b | |
 | 8 | real senders (approval needed) | |
 

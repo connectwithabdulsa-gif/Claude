@@ -2,6 +2,7 @@
 # Claude write the emails in a Claude Code session, then `engine write --import <file>`.
 # writer_mode: api = the Anthropic API writes and a Claude QA pass checks (costs money).
 writer_mode: session
+reply_mode: session      # session = Claude sorts replies in a Claude Code session, api = classify-api
 
 # Anthropic API settings. model ids and prices from the Claude API reference
 # (cached 2026-10-06). re-check prices before trusting the estimate for a big batch.
