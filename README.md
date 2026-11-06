@@ -23,9 +23,12 @@ engine signals refresh                    # detect csv signals, expire stale one
 engine score                              # 0 to 100, tiers A / B / C / dnc
 engine signals pick                       # best signal per lead + why-now lines
 engine signals list                       # what each lead's email 1 will open with
-engine write --limit 20                   # cost estimate only, nothing sent anywhere
+engine write --limit 20                   # session mode (default): writes a json brief to data/exports
+engine write --import data/exports/answer.json   # rule checks, fallback, footer, then review
+engine review                             # each email next to its facts and rule result
+engine review --approve all               # or --approve 3,4 / --hold 5 --note 'why'
 engine write --limit 20 --fake            # full pipeline with the offline fake writer
-engine write --limit 20 --yes --max-usd 3 # real Claude calls, hard dollar cap
+engine write --limit 20 --yes --max-usd 3 # api mode only (writer_mode: api): real Claude calls, dollar cap
 engine messages --status held             # what QA held back and why
 engine variants                           # variant rotation report
 engine leads --tier A                     # best first, with a one line reason each
@@ -51,6 +54,7 @@ fake domains all end in `.test`, so they can never be real companies.
 | 2 | verify (free local checks), score, tier | done |
 | 3 | signal engine: expiry, csv signals, best pick, why-now lines | done |
 | 4 | email 1 writer + QA (rules + Claude pass), fallback, hold, cost cap | done, untested live |
+| 4.5 | session writing mode: export brief, write in Claude Code, import, review | done |
 | 5 | sequences, scheduler, simulator | |
 | 6 | replies | |
 | 7 | linkedin list, reports, a/b | |

@@ -209,6 +209,8 @@ def test_cli_dry_run_never_builds_a_client(tmp_path, monkeypatch):
     conn = connect(tmp_path / "t.db")
     _seed(conn, 1)
     conn.commit()
+    real_load = w.load_cfg
+    monkeypatch.setattr(w, "load_cfg", lambda d: {**real_load(d), "llm": {**real_load(d)["llm"], "writer_mode": "api"}})
     r = CliRunner().invoke(app, ["write", "--limit", "5"])
     assert r.exit_code == 0, r.output
     assert "ESTIMATE" in r.output and "nothing was sent" in r.output and called == []

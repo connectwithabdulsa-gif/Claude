@@ -1,3 +1,8 @@
+# writer_mode: session = no api. `engine write` exports a json brief per batch, you have
+# Claude write the emails in a Claude Code session, then `engine write --import <file>`.
+# writer_mode: api = the Anthropic API writes and a Claude QA pass checks (costs money).
+writer_mode: session
+
 # Anthropic API settings. model ids and prices from the Claude API reference
 # (cached 2026-10-06). re-check prices before trusting the estimate for a big batch.
 

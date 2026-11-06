@@ -170,6 +170,18 @@ CREATE TABLE IF NOT EXISTS api_calls (
   run_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS email_exports (
+  id INTEGER PRIMARY KEY,
+  export_id TEXT NOT NULL,
+  lead_id INTEGER NOT NULL REFERENCES leads(id),
+  variant TEXT NOT NULL,
+  needs TEXT NOT NULL,            -- json list: signal_email and/or fallback_email
+  ctx_json TEXT NOT NULL,         -- the exact facts given out, checked again on import
+  created_at TEXT NOT NULL,
+  imported_at TEXT,
+  UNIQUE (export_id, lead_id)
+);
+
 CREATE TABLE IF NOT EXISTS signal_picks (
   id INTEGER PRIMARY KEY,
   lead_id INTEGER NOT NULL REFERENCES leads(id),
@@ -201,7 +213,8 @@ MIGRATIONS = {
               "fallback": "INTEGER"},
     "messages": {"status": "TEXT", "model": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
                  "cost_usd": "REAL", "uses_fallback": "INTEGER", "facts_json": "TEXT", "signal_class": "TEXT",
-                 "attempts": "INTEGER"},
+                 "attempts": "INTEGER", "review": "TEXT", "reviewed_at": "TEXT", "review_note": "TEXT",
+                 "writer_mode": "TEXT"},
     "signals": {"data_json": "TEXT", "signal_class": "TEXT", "expires_at": "TEXT", "expired_at": "TEXT"},
 }
 

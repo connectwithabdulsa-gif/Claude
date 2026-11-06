@@ -253,18 +253,43 @@ def write(
     yes: bool = typer.Option(False, "--yes", help="actually call the api after showing the estimate"),
     max_usd: float = typer.Option(0.0, help="hard dollar cap for a real run (required with --yes)"),
     redo: bool = typer.Option(False, "--redo", help="write again for leads that already have an email 1"),
+    export: bool = typer.Option(False, "--export", help="session mode: write a json brief, no api"),
+    import_path: Path = typer.Option(None, "--import", exists=True, dir_okay=False,
+                                     help="session mode: read written emails back and run the rule checks"),
+    out_dir: Path = typer.Option(None, help="where --export writes (default data/exports)"),
 ):
-    """write email 1 + QA. without --fake or --yes this only prints a cost estimate."""
+    """write email 1. writer_mode in config/llm.yaml: session (default, free) or api.
+
+    session: --export writes a brief, Claude writes the emails in this session, --import checks them.
+    api: estimate first, --yes --max-usd to run (or --fake for the offline stand in)."""
     from datetime import datetime, timezone
-    from .personalize import fake_writer, prompts, writer as w
+    from .personalize import fake_writer, prompts, session, writer as w
     from .personalize.llm import AnthropicLLM, FakeLLM
+    from .paths import ROOT
 
     conn = _conn()
     cfg = w.load_cfg(CONFIG_DIR)
-    leads_ = w.eligible_leads(conn, [t.strip() for t in tiers.split(",")], limit, redo)
     today = datetime.now(timezone.utc)
+    mode = cfg["llm"].get("writer_mode", "session")
+
+    if import_path:
+        r = session.import_file(conn, import_path, cfg)
+        typer.echo(f"imported  ready {r['ready']}  held {r['held']}  (ready as plain fallback: {r['fallback']})")
+        if r["unknown_lead"] or r["already_imported"]:
+            typer.echo(f"skipped   not in that export {r['unknown_lead']}, already imported {r['already_imported']}")
+        typer.echo("next: engine review")
+        return
+
+    leads_ = w.eligible_leads(conn, [t.strip() for t in tiers.split(",")], limit, redo)
     if not leads_:
         typer.echo("no eligible leads (needs a tier, a verified or risky email, and no email 1 yet)")
+        return
+
+    if export or (mode == "session" and not fake and not yes):
+        path, n = session.export_batch(conn, leads_, cfg["niches"], out_dir or ROOT / "data" / "exports", today)
+        typer.echo(f"exported {n} leads to {path}")
+        typer.echo("nothing left this machine. ask Claude in the session to write the emails from that file,")
+        typer.echo(f"then: engine write --import <answer file>")
         return
 
     if fake:
@@ -336,6 +361,52 @@ def messages(
         if full and r["body"]:
             typer.echo(f"subject: {r['subject']}")
             typer.echo(r["body"])
+
+
+@app.command()
+def review(
+    approve: str = typer.Option(None, help="message ids to approve, comma list, or 'all' (pending only)"),
+    hold: str = typer.Option(None, help="message ids to hold, comma list"),
+    note: str = typer.Option(None, help="reason, stored with the decision"),
+    status: str = typer.Option("pending", help="which to show: pending, approved or held"),
+    limit: int = typer.Option(50),
+):
+    """email 1 next to its facts and the rule check result. approve or hold by id."""
+    import json as _j
+    from .personalize import session
+    conn = _conn()
+    if approve or hold:
+        if approve:
+            ids = [r["id"] for r in session.review_rows(conn, "pending", 10000)] if approve == "all" else \
+                [int(x) for x in approve.split(",") if x.strip()]
+            typer.echo(f"approved {session.set_review(conn, ids, 'approved', note)}")
+        if hold:
+            typer.echo(f"held {session.set_review(conn, [int(x) for x in hold.split(',') if x.strip()], 'held', note)}")
+        return
+    rows = session.review_rows(conn, status, limit)
+    if not rows:
+        typer.echo(f"nothing {status}")
+        return
+    for r in rows:
+        f = _j.loads(r["facts_json"] or "{}")
+        facts, used = f.get("facts", []), set(f.get("facts_used", []))
+        typer.echo("=" * 78)
+        typer.echo(f"#{r['id']}  {r['first_name']} <{r['email']}>  tier {r['tier']} ({r['score']})  "
+                   f"{r['signal_class']}  variant {r['variant']}  {r['writer_mode'] or 'api'}")
+        typer.echo("facts given:")
+        for x in facts:
+            mark = "used" if x["id"] in used else "    "
+            src = f"{x.get('source') or ''} {x.get('field') or ''}".strip()
+            typer.echo(f"  [{mark}] {x['id']:<10} {x['text'][:70]}  <- {src}{', ' + str(x['date'])[:10] if x.get('date') else ''}")
+        reasons = _j.loads(r["qa_reasons"] or "[]")
+        typer.echo(f"rule check: {'PASS' if r['status'] == 'ready' else 'FAIL'}"
+                   + (f"  (earlier try failed: {len(reasons)} issue(s))" if reasons and r['status'] == 'ready' else ""))
+        for x in reasons:
+            typer.echo(f"  - {x}")
+        typer.echo(f"subject: {r['subject']}")
+        typer.echo(r["body"])
+    typer.echo("=" * 78)
+    typer.echo("approve: engine review --approve <ids|all>   hold: engine review --hold <ids> --note '...'")
 
 
 @app.command()
