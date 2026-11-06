@@ -1,11 +1,44 @@
-# DFY GTM Systems
+# DFY GTM Systems outbound engine
 
+outbound pipeline for DFY GTM Systems. finds prospects, detects real signals, writes short messages, sends safely, handles replies, reports daily. **dry run by default.** nothing is sent unless a command has `--live` and abdul approved it in chat.
+
+rules live in `CLAUDE.md` and `message-library.md`. the original build brief is in `docs/build-prompt.md`.
 live site: [dfygtmsystems.com](https://dfygtmsystems.com)
 
-done for you outbound. leads auto-enrich in Clay and push to Instantly or Smartlead with zero manual work. $2k flat per month plus infra at cost.
+## setup
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+cp .env.example .env   # fill in later. never commit .env
+```
 
-## what's here
-- `CLAUDE.md` offer, icp, pricing and voice rules. every session reads this first.
-- `outbound/sequences.md` 3 cold email sequences + reply handlers
-- `clay/table-blueprint.md` column by column Clay build, prompts included
-- `site/index.html` draft page copy (the live site is dfygtmsystems.com)
+## commands (so far)
+```bash
+engine import path/to/clay_export.csv     # dedupe + suppression on import
+engine stats
+engine suppress add rival.com -r competitor
+engine suppress check someone@rival.com
+python spacemail_check.py                 # login test only, never sends
+```
+
+## demo with fake data
+```bash
+python scripts/make_fake_leads.py data/demo
+ENGINE_DB=data/demo/demo.db engine import data/demo/clay_export_1.csv
+```
+fake domains all end in `.test`, so they can never be real companies.
+
+## status
+| phase | what | status |
+|---|---|---|
+| 0 | scaffold, rules files, archive old drafts | done |
+| 1 | sqlite data layer, Clay csv import, dedupe, suppression | done |
+| 2 | verify (free local checks), score, tier | next |
+| 3 | signal engine | |
+| 4 | message writer + QA | |
+| 5 | sequences, scheduler, simulator | |
+| 6 | replies | |
+| 7 | linkedin list, reports, a/b | |
+| 8 | real senders (approval needed) | |
+
+`archive/` holds the earlier starter kit. it is superseded and breaks some current rules, so don't copy from it.

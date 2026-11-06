@@ -1,0 +1,21 @@
+# maps Clay export headers to engine fields.
+# matching ignores case, spaces, underscores and dashes.
+# no real Clay export has been checked yet. once abdul shares a sample,
+# fix these aliases to the real headers. unmapped columns are kept in raw_json
+# and listed after each import, so nothing is lost.
+
+first_name: [first name, firstname, first]
+last_name: [last name, lastname, last]
+full_name: [full name, name, person name]
+title: [job title, title, position, role]
+email: [email, work email, email address, final email, validated email]
+email_status: [email status, email validation, validation status, verification status]
+linkedin_url: [linkedin profile, linkedin url, person linkedin, linkedin]
+person_country: [country, person country, location country]
+person_location: [location, person location]
+company_name: [company name, company, organization, account name]
+company_domain: [company domain, domain, website, company website, url]
+company_linkedin_url: [company linkedin, company linkedin url]
+industry: [industry, company industry]
+headcount: [employee count, employees, headcount, company size, size]
+company_country: [company country, hq country, headquarters country]
