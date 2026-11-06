@@ -180,6 +180,16 @@ CREATE TABLE IF NOT EXISTS reply_exports (
   UNIQUE (export_id, reply_id)
 );
 
+CREATE TABLE IF NOT EXISTS linkedin_log (
+  id INTEGER PRIMARY KEY,
+  lead_id INTEGER NOT NULL REFERENCES leads(id),
+  kind TEXT NOT NULL,            -- connect or followup
+  note TEXT NOT NULL,
+  list_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'listed',   -- listed, sent, accepted, replied, skipped
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notes (
   id INTEGER PRIMARY KEY,
   lead_id INTEGER NOT NULL REFERENCES leads(id),
@@ -249,7 +259,7 @@ def now() -> str:
 # columns added after the first schema. connect() adds them to older databases.
 MIGRATIONS = {
     "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT",
-              "fallback": "INTEGER", "follow_up_at": "TEXT", "referred_by_lead_id": "INTEGER"},
+              "fallback": "INTEGER", "booked_at": "TEXT", "follow_up_at": "TEXT", "referred_by_lead_id": "INTEGER"},
     "replies": {"message_id": "TEXT", "in_reply_to": "TEXT", "matched_by": "TEXT", "status": "TEXT",
                 "reason": "TEXT", "follow_up_at": "TEXT", "referral_json": "TEXT", "export_id": "TEXT",
                 "draft_status": "TEXT", "reviewed_at": "TEXT", "review_note": "TEXT", "to_address": "TEXT",

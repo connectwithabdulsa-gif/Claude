@@ -23,6 +23,8 @@ suppress_app = typer.Typer(no_args_is_help=True, help="manage the suppression li
 app.add_typer(suppress_app, name="suppress")
 mailbox_app = typer.Typer(no_args_is_help=True, help="sending mailboxes (secondary domains only).")
 app.add_typer(mailbox_app, name="mailboxes")
+linkedin_app = typer.Typer(no_args_is_help=True, help="linkedin: manual only.")
+app.add_typer(linkedin_app, name="linkedin")
 replies_app = typer.Typer(no_args_is_help=True, help="replies: ingest, sort, draft, review. never sends.")
 app.add_typer(replies_app, name="replies")
 signals_app = typer.Typer(no_args_is_help=True, help="signal engine: refresh, pick, list.")
@@ -684,6 +686,63 @@ def replies_edit(reply_id: int, file: Path = typer.Option(..., exists=True, dir_
     from .replies import classify as rc
     typer.echo(rc.set_draft(_conn(), reply_id, "edit", new_draft=file.read_text().strip(),
                             cfg=rc.load_cfg(CONFIG_DIR)))
+
+
+def _day(d):
+    from datetime import date
+    return date.fromisoformat(d) if d else date.today()
+
+
+@app.command("linkedin-daily")
+def linkedin_daily(day: str = typer.Option(None, "--date", help="YYYY-MM-DD, default today")):
+    """today's list of up to 20 tier A people: profile link + exact note. you send them by hand."""
+    import yaml as _y
+    from .linkedin import daily
+    from .paths import ROOT
+    conn = _conn()
+    rd = lambda n: _y.safe_load((CONFIG_DIR / n).read_text())
+    d = _day(day)
+    out = daily.build(conn, rd("sending.yaml"), rd("niches.yaml"), rd("copy_rules.yaml"), d)
+    md = daily.markdown(out, d)
+    path = ROOT / "data" / "linkedin" / f"{d.isoformat()}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(md)
+    typer.echo(md)
+    typer.echo(f"saved to {path}")
+
+
+@linkedin_app.command("mark")
+def linkedin_mark(lead_id: int, status: str = typer.Argument(..., help="sent, accepted, replied or skipped")):
+    """record what happened after you sent it by hand."""
+    from .linkedin import daily
+    n = daily.mark(_conn(), lead_id, status)
+    typer.echo(f"marked {status}" if n else "that lead is not on a linkedin list")
+
+
+@app.command()
+def booked(lead: str = typer.Argument(..., help="lead id or email"), when: str = typer.Option(None, help="ISO date, default now")):
+    """record a booked call. counts in the reports."""
+    from .normalize import norm_email
+    conn = _conn()
+    r = conn.execute("SELECT id FROM leads WHERE id=? OR email=?", (int(lead) if lead.isdigit() else -1, norm_email(lead))).fetchone()
+    if not r:
+        raise typer.BadParameter(f"no lead {lead!r}")
+    conn.execute("UPDATE leads SET booked_at=? WHERE id=?", (when or now(), r["id"]))
+    log_event(conn, "call_booked", "lead", r["id"], None)
+    conn.commit()
+    typer.echo(f"call booked for lead {r['id']}")
+
+
+@app.command()
+def report(kind: str = typer.Argument("daily", help="daily or weekly"),
+           day: str = typer.Option(None, "--date", help="last day of the report, default today")):
+    """sends, bounces, replies, positive replies, calls booked, split by niche, signal, variant and subject, plus a/b."""
+    import yaml as _y
+    from .report import periodic
+    if kind not in ("daily", "weekly"):
+        raise typer.BadParameter("daily or weekly")
+    cfg = _y.safe_load((CONFIG_DIR / "sending.yaml").read_text())
+    typer.echo(periodic.text(periodic.build(_conn(), cfg, kind, _day(day))))
 
 
 @app.command()

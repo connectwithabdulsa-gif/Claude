@@ -45,6 +45,10 @@ engine replies export                     # session mode: brief for Claude to so
 engine replies import data/exports/reply-answers.json   # every answer checked first
 engine replies inbox                      # urgent first, then what needs you
 engine replies approve 3                  # queued for phase 8 sending, nothing is sent now
+engine linkedin-daily                     # up to 20 tier A people, profile link + exact note, send by hand
+engine linkedin mark 9 accepted           # sent / accepted / replied / skipped
+engine booked 42                          # record a booked call
+engine report daily                       # or weekly. splits by niche, signal, variant, subject + a/b
 ```
 
 a `SessionEnd` hook in `.claude/settings.json` runs `engine summary` at the end of every Claude Code
@@ -77,7 +81,7 @@ fake domains all end in `.test`, so they can never be real companies.
 | 4.5 | session writing mode: export brief, write in Claude Code, import, review | done |
 | 5 | 4 step sequence, scheduler, caps + ramp, stop rules, auto pause, simulator | done |
 | 6 | replies: match, instant stop/suppress/pause, session sorting + drafts, inbox review | done |
-| 7 | linkedin list, reports, a/b | |
+| 7 | linkedin daily list (manual), daily/weekly reports, a/b readout | done |
 | 8 | real senders (approval needed) | |
 
 `archive/` holds the earlier starter kit. it is superseded and breaks some current rules, so don't copy from it.

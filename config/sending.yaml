@@ -38,3 +38,12 @@ timezones:                      # recipient country -> timezone
 
 headers:
   list_unsubscribe: true        # mailto + one click post header on every email
+
+linkedin:                       # manual only, never automated (CLAUDE.md hard rule 3)
+  max_per_day: 20
+  max_note_chars: 200
+  tiers: [A]
+
+reports:
+  ab_min_sends: 300             # CLAUDE.md: 300 sends per variant before judging
+  positive_categories: [interested, meeting_request]
