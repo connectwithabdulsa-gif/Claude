@@ -550,6 +550,46 @@ def dashboard(
 
 
 @app.command()
+def serve(
+    port: int = typer.Option(8765, help="local port"),
+    host: str = typer.Option("127.0.0.1", help="bind address. keep 127.0.0.1 so only this machine can reach it"),
+    include_dry_run: bool = typer.Option(False, "--include-dry-run"),
+):
+    """serve the dashboard on localhost. only the dashboard page is served, never the database
+    or anything else in data/. it rebuilds from the database on every page load."""
+    import http.server
+    from .report.dashboard import write_dashboard
+    import tempfile
+
+    tmp = Path(tempfile.mkdtemp(prefix="dfy-dash-"))
+    page = tmp / "dashboard.html"
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.split("?")[0].split("#")[0] not in ("/", "/dashboard.html"):
+                self.send_error(404, "only the dashboard is served here")
+                return
+            write_dashboard(_conn(), CONFIG_DIR, page, include_dry_run)   # fresh numbers every load
+            body = page.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt, *args):
+            pass
+
+    srv = http.server.ThreadingHTTPServer((host, port), Handler)
+    typer.echo(f"dashboard on http://{host}:{port}/  (ctrl+c to stop). only this page is served.")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+@app.command()
 def note(lead: str = typer.Argument(..., help="lead id or email"), text: str = typer.Argument(...)):
     """add a note to a prospect. it shows in their dashboard history."""
     from .normalize import norm_email
