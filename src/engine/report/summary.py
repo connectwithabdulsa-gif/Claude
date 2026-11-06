@@ -1,11 +1,15 @@
-"""one set of pipeline numbers, used by `engine summary` (text) and `engine dashboard` (local html)."""
-import html
+"""one set of pipeline numbers, used by `engine summary` (text, with "since last time") and
+`engine dashboard` (local html, see dashboard.py)."""
+import json
 from datetime import datetime, timezone
+
+from ..db import now
 
 
 def collect(conn) -> dict:
     one = lambda q, *a: conn.execute(q, a).fetchone()[0] or 0
-    group = lambda q, *a: {r[0] if r[0] is not None else "none": r[1] for r in conn.execute(q, a)}
+    # keys as strings so a snapshot (json) and a live collect compare equal
+    group = lambda q, *a: {str(r[0]) if r[0] is not None else "none": r[1] for r in conn.execute(q, a)}
     sends = one("SELECT COUNT(*) FROM sends")
     bounces = one("SELECT COUNT(*) FROM sends WHERE outcome='bounce'")
     return {
@@ -34,6 +38,7 @@ def collect(conn) -> dict:
         "sends_per_day": [dict(r) for r in conn.execute(
             "SELECT date(sent_at) AS day, COUNT(*) AS n FROM sends GROUP BY day ORDER BY day DESC LIMIT 30")][::-1],
         "suppression": one("SELECT COUNT(*) FROM suppression"),
+        "notes": one("SELECT COUNT(*) FROM notes"),
         "explorium_credits": one("SELECT SUM(credits) FROM api_calls WHERE provider='explorium'"),
         "anthropic_usd": round(one("SELECT SUM(cost_usd) FROM messages"), 4),
         "alerts": [dict(r) for r in conn.execute(
@@ -67,53 +72,74 @@ def text(s: dict) -> str:
     return "\n".join(lines)
 
 
-def dashboard_html(s: dict) -> str:
-    e = html.escape
-    def card(label, value, note=""):
-        return f'<div class="card"><div class="label">{e(label)}</div><div class="value">{e(str(value))}</div><div class="note">{e(note)}</div></div>'
-    def table(title, d):
-        rows = "".join(f"<tr><td>{e(str(k))}</td><td class='n'>{e(str(v))}</td></tr>" for k, v in d.items()) or "<tr><td colspan=2>none</td></tr>"
-        return f"<section><h2>{e(title)}</h2><table>{rows}</table></section>"
-    peak = max([d["n"] for d in s["sends_per_day"]] or [1])
-    bars = "".join(
-        f'<div class="bar" title="{e(d["day"])}: {d["n"]}"><span style="height:{int(d["n"] / peak * 100)}%"></span>'
-        f'<em>{e(d["day"][5:])}</em></div>' for d in s["sends_per_day"]) or "<p class='note'>no sends yet</p>"
-    mbs = "".join(f"<tr><td>{e(m['address'])}</td><td class='n'>{m['sends']}</td><td>"
-                  f"{'<b class=bad>paused</b> ' + e(m['pause_reason'] or '') if m['paused'] else '<span class=ok>ok</span>'}</td></tr>"
-                  for m in s["mailboxes"]) or "<tr><td colspan=3>no mailboxes</td></tr>"
-    alerts = "".join(f"<li>{e(a['ts'][:16])} {e(a['reason'])}</li>" for a in s["alerts"]) or "<li>none</li>"
-    bounce_cls = "bad" if s["bounce_pct"] >= 2 else "ok"
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Outbound Pipeline</title>
-<style>
-:root{{--bg:#f7f7f5;--card:#fff;--text:#1a1a1a;--muted:#666;--line:#e5e5e0;--accent:#2f5bff;--ok:#1f8a4c;--bad:#c0392b}}
-@media (prefers-color-scheme: dark){{:root{{--bg:#111214;--card:#1a1b1e;--text:#eee;--muted:#9a9a9a;--line:#2b2c30;--accent:#7c97ff;--ok:#5fd08f;--bad:#ff7a6b}}}}
-*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}}
-main{{max-width:1100px;margin:0 auto;padding:24px 16px}}h1{{font-size:22px;margin:0 0 4px}}h2{{font-size:15px;margin:0 0 8px}}
-.sub{{color:var(--muted);margin:0 0 20px}}.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}}
-.card,section{{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}}
-.label{{color:var(--muted);font-size:12px}}.value{{font-size:26px;font-weight:600}}.note{{color:var(--muted);font-size:12px}}
-.cols{{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}}
-table{{width:100%;border-collapse:collapse}}td{{padding:4px 0;border-bottom:1px solid var(--line)}}td.n{{text-align:right;font-variant-numeric:tabular-nums}}td+td{{padding-left:12px}}
-.chart{{display:flex;align-items:flex-end;gap:6px;height:140px;overflow-x:auto}}.bar{{flex:1;min-width:22px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}}
-.bar span{{width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}}.bar em{{font-size:10px;color:var(--muted);font-style:normal}}
-.ok{{color:var(--ok)}}.bad{{color:var(--bad)}}ul{{margin:0;padding-left:18px}}
-</style></head><body><main>
-<h1>Outbound pipeline</h1><p class="sub">DFY GTM Systems, generated {e(s['generated_at'])}. local file, not published.</p>
-<div class="grid">
-{card('leads', s['leads'], f"{s['companies']} companies")}
-{card('tier A', s['by_tier'].get('A', 0), 'score 75+')}
-{card('email 1 approved', s['email1_review'].get('approved', 0), f"{s['email1_review'].get('pending', 0)} waiting for review")}
-{card('active sequences', s['sequences'].get('active', 0), f"{s['sequences'].get('completed', 0)} completed")}
-{card('sends', s['sends'], _kv(s['sends_by_mode']))}
-<div class="card"><div class="label">bounce rate</div><div class="value {bounce_cls}">{s['bounce_pct']}%</div><div class="note">target under 2%</div></div>
-{card('reply rate', f"{s['reply_pct']}%", 'all replies')}
-{card('spend', f"${s['anthropic_usd']}", f"{s['explorium_credits']} explorium credits")}
-</div>
-<section style="margin-bottom:12px"><h2>sends per day</h2><div class="chart">{bars}</div></section>
-<div class="cols">
-{table('tiers', s['by_tier'])}{table('email verification', s['verify'])}{table('email 1 review', s['email1_review'])}
-{table('sends by step', s['sends_by_step'])}{table('outcomes', s['outcomes'])}{table('sequences', s['sequences'])}
-</div>
-<div class="cols"><section><h2>mailboxes</h2><table>{mbs}</table></section><section><h2>alerts</h2><ul>{alerts}</ul></section></div>
-</main></body></html>"""
+# ---- since last time -------------------------------------------------------
+
+def last_snapshot(conn) -> dict | None:
+    r = conn.execute("SELECT ts, data_json FROM summary_snapshots ORDER BY id DESC LIMIT 1").fetchone()
+    return {"ts": r["ts"], "data": json.loads(r["data_json"])} if r else None
+
+
+def save_snapshot(conn, s: dict) -> None:
+    conn.execute("INSERT INTO summary_snapshots (ts, data_json) VALUES (?, ?)", (now(), json.dumps(s, default=str)))
+    conn.commit()
+
+
+def _dict_delta(new: dict, old: dict) -> dict:
+    keys = list(dict.fromkeys(list(new) + list(old)))
+    out = {}
+    for k in keys:
+        d = (new.get(k) or 0) - (old.get(k) or 0)
+        if d:
+            out[str(k)] = d
+    return out
+
+
+def _signed(d: dict) -> str:
+    return ", ".join(f"{k} {v:+d}" for k, v in d.items()) or "no change"
+
+
+def since_text(new: dict, prev: dict | None, now_dt: datetime | None = None) -> str:
+    if prev is None:
+        return "since last time: first run, nothing to compare yet. this summary is now the baseline."
+    old, ts = prev["data"], prev["ts"]
+    now_dt = now_dt or datetime.now(timezone.utc)
+    then = datetime.fromisoformat(ts)
+    hours = (now_dt - then).total_seconds() / 3600
+    ago = f"{hours:.0f}h ago" if hours < 48 else f"{hours / 24:.0f} days ago"
+    lines = [f"since last time ({ts[:16].replace('T', ' ')} UTC, {ago})"]
+
+    def row(label, value):
+        lines.append(f"  {label:<14} {value}")
+
+    row("new leads", f"{new['leads'] - old['leads']:+d}" + (f"  ({_signed(_dict_delta(new['by_source'], old['by_source']))})"
+                                                             if new["leads"] != old["leads"] else ""))
+    row("tiers", _signed(_dict_delta(new["by_tier"], old["by_tier"])))
+    w = sum(new["email1_review"].values()) - sum(old["email1_review"].values())
+    row("email 1", f"written {w:+d}, review " + _signed(_dict_delta(new["email1_review"], old["email1_review"])))
+    row("sends", f"{new['sends'] - old['sends']:+d}  by step " + _signed(_dict_delta(new["sends_by_step"], old["sends_by_step"])))
+    out_d = _dict_delta(new["outcomes"], old["outcomes"])
+    row("replies", f"{out_d.get('reply', 0):+d}")
+    row("bounces", f"{out_d.get('bounce', 0):+d}   unsubscribes {out_d.get('unsubscribe', 0):+d}   complaints {out_d.get('complaint', 0):+d}")
+    row("sequences", _signed(_dict_delta(new["sequences"], old["sequences"])))
+    was_paused = {m["address"] for m in old["mailboxes"] if m["paused"]}
+    now_paused = {m["address"]: m["pause_reason"] for m in new["mailboxes"] if m["paused"]}
+    newly = [f"{a} ({r})" for a, r in now_paused.items() if a not in was_paused]
+    resumed = [a for a in was_paused if a not in now_paused]
+    row("mailboxes", ("newly paused: " + "; ".join(newly) if newly else "no new pauses")
+        + (f"   resumed: {', '.join(resumed)}" if resumed else ""))
+    row("spend", f"explorium {new['explorium_credits'] - old['explorium_credits']:+d} credits, "
+                 f"anthropic ${new['anthropic_usd'] - old['anthropic_usd']:+.4f}")
+    row("notes", f"{new.get('notes', 0) - old.get('notes', 0):+d}")
+    old_alerts = {(a["ts"], a["reason"]) for a in old["alerts"]}
+    for a in new["alerts"]:
+        if (a["ts"], a["reason"]) not in old_alerts:
+            lines.append(f"  NEW ALERT      {a['ts'][:16]} {a['reason']}")
+    return "\n".join(lines)
+
+
+def full_summary(conn, save: bool = True) -> str:
+    s = collect(conn)
+    out = since_text(s, last_snapshot(conn)) + "\n\n" + text(s)
+    if save:
+        save_snapshot(conn, s)
+    return out

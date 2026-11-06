@@ -195,15 +195,17 @@ def test_main_domain_mailbox_refused(tmp_path, monkeypatch):
 
 
 def test_summary_and_dashboard(conn, tmp_path):
-    from engine.report.summary import collect, dashboard_html, text
+    from engine.report.dashboard import write_dashboard
+    from engine.report.summary import collect, text
     seed(conn, n=3)
     run(conn, TUE, tmp_path)
     s = collect(conn)
     assert s["sends"] == 3 and s["sequences"]["active"] == 3
     t = text(s)
     assert "sends        3" in t and "bounce 0.0%" in t
-    h = dashboard_html(s)
-    assert h.startswith("<!doctype html>") and "prefers-color-scheme: dark" in h and "abdul@send0.test" in h
+    write_dashboard(conn, CONFIG_DIR, tmp_path / "d.html")
+    h = (tmp_path / "d.html").read_text()
+    assert h.startswith("<!doctype html>") and "prefers-color-scheme: dark" in h
 
 
 def test_mixed_timezones_fill_the_cap(conn, tmp_path):

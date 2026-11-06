@@ -170,6 +170,20 @@ CREATE TABLE IF NOT EXISTS api_calls (
   run_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY,
+  lead_id INTEGER NOT NULL REFERENCES leads(id),
+  text TEXT NOT NULL,
+  author TEXT NOT NULL DEFAULT 'abdul',
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS summary_snapshots (
+  id INTEGER PRIMARY KEY,
+  ts TEXT NOT NULL,
+  data_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sequence_state (
   lead_id INTEGER PRIMARY KEY REFERENCES leads(id),
   company_id INTEGER,

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x \"$CLAUDE_PROJECT_DIR/.venv/bin/engine\" ] && cd \"$CLAUDE_PROJECT_DIR\" && \"$CLAUDE_PROJECT_DIR/.venv/bin/engine\" summary >/dev/null 2>&1 || true",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

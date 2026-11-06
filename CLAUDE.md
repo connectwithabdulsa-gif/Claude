@@ -207,3 +207,4 @@ dfy-outbound-engine/
 - Plan before building. Build in phases and stop after each for review.
 - Be direct. If an idea is risky (deliverability, compliance, cost), say so and suggest a safer way.
 - Keep chat replies short. No em dashes.
+- End every session by running `engine summary` and showing Abdul the "since last time" block. (A SessionEnd hook in `.claude/settings.json` also runs it and writes `data/summary-latest.txt`.)

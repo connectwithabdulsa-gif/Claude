@@ -34,8 +34,18 @@ engine variants                           # variant rotation report
 engine mailboxes add you@second-domain.com --warmup-start 2026-10-01
 engine simulate --days 3                  # scheduler + simulator sender, nothing sent
 engine outcome <send id> reply            # or bounce / unsubscribe / complaint: stops + suppresses
-engine summary                            # whole pipeline in one screen
-engine dashboard                          # local html at data/dashboard.html (not published)
+engine summary                            # "since last time" first, then the whole pipeline
+engine summary --no-save                  # peek without moving the baseline
+engine dashboard                          # local html at data/dashboard.html: totals, prospect table,
+                                          # filters, full history per person. never uploaded
+engine dashboard --include-dry-run        # after going live, also show simulated sends
+engine note 42 "called, wants the map"    # note on a prospect (id or email), shows in the dashboard
+```
+
+a `SessionEnd` hook in `.claude/settings.json` runs `engine summary` at the end of every Claude Code
+session and writes `data/summary-latest.txt`. it does nothing if `.venv` is missing.
+
+```bash
 engine leads --tier A                     # best first, with a one line reason each
 engine stats
 engine suppress add rival.com -r competitor

@@ -523,21 +523,45 @@ def calendar(days: int = typer.Option(21)):
 
 
 @app.command()
-def summary():
-    """the whole pipeline in one screen."""
-    from .report.summary import collect, text
-    typer.echo(text(collect(_conn())))
+def summary(save: bool = typer.Option(True, "--save/--no-save", help="--no-save peeks without moving the baseline")):
+    """the whole pipeline, starting with what changed since the last summary."""
+    from .paths import ROOT
+    from .report.summary import full_summary
+    out = full_summary(_conn(), save=save)
+    typer.echo(out)
+    latest = ROOT / "data" / "summary-latest.txt"
+    latest.parent.mkdir(parents=True, exist_ok=True)
+    latest.write_text(out + "\n")
 
 
 @app.command()
-def dashboard(out: Path = typer.Option(None, help="html file to write (default data/dashboard.html)")):
-    """write a local html dashboard. it stays on this machine (data/ is gitignored)."""
+def dashboard(
+    out: Path = typer.Option(None, help="html file to write (default data/dashboard.html)"),
+    include_dry_run: bool = typer.Option(False, "--include-dry-run",
+                                         help="after going live, also show simulated sends"),
+):
+    """write the local html dashboard: totals, prospect table with filters, full history per person.
+    one file, no external links, never uploaded (data/ is gitignored)."""
     from .paths import ROOT
-    from .report.summary import collect, dashboard_html
+    from .report.dashboard import write_dashboard
     path = out or ROOT / "data" / "dashboard.html"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dashboard_html(collect(_conn())))
-    typer.echo(f"dashboard written to {path}")
+    d = write_dashboard(_conn(), CONFIG_DIR, path, include_dry_run)
+    typer.echo(f"dashboard written to {path}  ({len(d['prospects'])} prospects, {d['mode']} data)")
+
+
+@app.command()
+def note(lead: str = typer.Argument(..., help="lead id or email"), text: str = typer.Argument(...)):
+    """add a note to a prospect. it shows in their dashboard history."""
+    from .normalize import norm_email
+    conn = _conn()
+    row = conn.execute("SELECT id FROM leads WHERE id=? OR email=?",
+                       (int(lead) if lead.isdigit() else -1, norm_email(lead))).fetchone()
+    if not row:
+        raise typer.BadParameter(f"no lead {lead!r}")
+    conn.execute("INSERT INTO notes (lead_id, text, created_at) VALUES (?,?,?)", (row["id"], text, now()))
+    log_event(conn, "note_added", "lead", row["id"], None)
+    conn.commit()
+    typer.echo(f"note added to lead {row['id']}")
 
 
 @app.command()
