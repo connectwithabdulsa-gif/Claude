@@ -146,13 +146,16 @@ def write_one(conn, llm, cfg, lead: dict, today: datetime, spend: Spend, sys_w: 
     full = f"{body}\n\n{footer(cfg['sender'])}" if body else ""
     conn.execute(
         """INSERT INTO messages (lead_id, step, variant, subject, body, signal_ids, qa_verdict, qa_reasons, created_at,
-             status, model, input_tokens, output_tokens, cost_usd, uses_fallback, facts_json, signal_class, attempts)
-           VALUES (?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             status, model, input_tokens, output_tokens, cost_usd, uses_fallback, facts_json, signal_class, attempts,
+             review, writer_mode)
+           VALUES (?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (lead["id"], variant, (email or {}).get("subject", ""), full,
          json.dumps([ctx["signal"]["signal_id"]] if has_signal and not used_fallback else []),
          "pass" if status == "ready" else "fail", json.dumps(reasons), now(), status,
          cfg["llm"]["writer"]["model"], None, None, round(cost, 6), int(used_fallback),
-         json.dumps(ctx["facts"]), "fallback" if used_fallback else signal_class, attempts))
+         json.dumps({"facts": ctx["facts"], "facts_used": (email or {}).get("facts_used", [])}),
+         "fallback" if used_fallback else signal_class, attempts,
+         "pending" if status == "ready" else "held", "fake" if getattr(llm, "is_fake", False) else "api"))
     log_event(conn, "email1_written", "lead", lead["id"], "; ".join(reasons) or None, status=status,
               variant=variant, fallback=used_fallback, cost=round(cost, 6))
     return WriteOutcome(lead["id"], status, used_fallback, variant, (email or {}).get("subject", ""), full,

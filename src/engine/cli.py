@@ -21,6 +21,8 @@ app = typer.Typer(no_args_is_help=True, add_completion=False,
                   help="DFY GTM Systems outbound engine. dry run by default.")
 suppress_app = typer.Typer(no_args_is_help=True, help="manage the suppression list.")
 app.add_typer(suppress_app, name="suppress")
+mailbox_app = typer.Typer(no_args_is_help=True, help="sending mailboxes (secondary domains only).")
+app.add_typer(mailbox_app, name="mailboxes")
 signals_app = typer.Typer(no_args_is_help=True, help="signal engine: refresh, pick, list.")
 app.add_typer(signals_app, name="signals")
 
@@ -407,6 +409,135 @@ def review(
         typer.echo(r["body"])
     typer.echo("=" * 78)
     typer.echo("approve: engine review --approve <ids|all>   hold: engine review --hold <ids> --note '...'")
+
+
+@mailbox_app.command("add")
+def mailbox_add(
+    address: str,
+    warmup_start: str = typer.Option(..., help="YYYY-MM-DD the warmup started"),
+    daily_cap: int = typer.Option(30, help="hard ceiling for this mailbox"),
+):
+    """add a sending mailbox. refuses the main domain (CLAUDE.md hard rule 2)."""
+    import yaml as _y
+    from .normalize import norm_domain
+    conn = _conn()
+    dom = norm_domain(address)
+    blocked = set((_y.safe_load((CONFIG_DIR / "sender.yaml").read_text()) or {}).get("main_domains") or [])
+    if dom in blocked or dom in ("gmail.com", "googlemail.com"):
+        raise typer.BadParameter(f"{dom} is a main domain or personal gmail. cold email only from secondary domains")
+    conn.execute("INSERT OR IGNORE INTO domains (domain) VALUES (?)", (dom,))
+    did = conn.execute("SELECT id FROM domains WHERE domain=?", (dom,)).fetchone()[0]
+    conn.execute("INSERT OR IGNORE INTO mailboxes (address, domain_id, warmup_started_at, daily_cap) VALUES (?,?,?,?)",
+                 (address.lower(), did, warmup_start, daily_cap))
+    conn.commit()
+    typer.echo(f"mailbox {address} added, warmup from {warmup_start}")
+
+
+@mailbox_app.command("list")
+def mailbox_list():
+    """mailboxes with today's cap and health."""
+    from datetime import date
+    from .sequence import scheduler as sch
+    conn = _conn()
+    cfg = sch.load_cfg(CONFIG_DIR)
+    for r in conn.execute("SELECT * FROM mailboxes ORDER BY id"):
+        cap = sch.mailbox_cap(dict(r), date.today(), cfg["sending"]["ramp"])
+        sent = conn.execute("SELECT COUNT(*) FROM sends WHERE mailbox_id=?", (r["id"],)).fetchone()[0]
+        state = f"PAUSED: {r['pause_reason']}" if r["paused"] else "ok"
+        typer.echo(f"{r['address']:<32} warmup {str(r['warmup_started_at'])[:10]}  cap today {cap:>2}  sends {sent:>4}  {state}")
+
+
+@mailbox_app.command("unpause")
+def mailbox_unpause(address: str):
+    """resume a paused mailbox after you checked what went wrong."""
+    conn = _conn()
+    conn.execute("UPDATE mailboxes SET paused=0, pause_reason=NULL WHERE address=?", (address.lower(),))
+    log_event(conn, "mailbox_unpaused", "mailbox", address, "by abdul")
+    conn.commit()
+    typer.echo(f"unpaused {address}")
+
+
+@app.command()
+def simulate(
+    days: int = typer.Option(3, min=1, max=60),
+    start: str = typer.Option(None, help="first day YYYY-MM-DD (default: today)"),
+    assume_warm: bool = typer.Option(False, "--assume-warm", help="pretend warmup is finished (simulation only)"),
+    bounce_rate: float = typer.Option(0.0, help="share of sends that bounce in the simulation"),
+    reply_rate: float = typer.Option(0.0, help="share of sends that get a reply in the simulation"),
+    seed: int = typer.Option(7),
+):
+    """run the scheduler day by day with the simulator sender. nothing is sent."""
+    import random as _r
+    from datetime import date, timedelta
+    from .paths import ROOT
+    from .send.base import SimulatorSender
+    from .sequence import scheduler as sch
+    conn = _conn()
+    cfg = sch.load_cfg(CONFIG_DIR)
+    rng = _r.Random(seed)
+    sender = SimulatorSender(ROOT / "data" / "sim" / "outbox.jsonl")
+    d0 = date.fromisoformat(start) if start else date.today()
+    for i in range(days):
+        day = d0 + timedelta(days=i)
+        p = sch.plan_and_send(conn, cfg, day, sender, rng, assume_warm)
+        sent = sum(p.sent.values())
+        typer.echo(f"{day.isoformat()} {day.strftime('%a').lower()}  sent {sent}  by step {dict(sorted(p.by_step.items())) or '-'}")
+        for mb, cap in p.caps.items():
+            fl = p.first_last_local.get(mb)
+            span = f"  local {fl[0]} to {fl[1]}" if fl else ""
+            typer.echo(f"    {mb:<30} {p.sent[mb]:>3} / cap {cap}{span}")
+        if p.skipped:
+            typer.echo(f"    skipped: {p.skipped}")
+        if bounce_rate or reply_rate:
+            for s in conn.execute("SELECT id FROM sends WHERE date(sent_at)=? AND outcome IS NULL AND mode='dry_run'",
+                                  (day.isoformat(),)).fetchall():
+                x = rng.random()
+                kind = "bounce" if x < bounce_rate else "reply" if x < bounce_rate + reply_rate else None
+                if kind:
+                    for a in sch.record_outcome(conn, cfg, s["id"], kind):
+                        typer.echo(f"    ALERT {a}")
+    typer.echo("simulation only. every send is in data/sim/outbox.jsonl, nothing left this machine.")
+
+
+@app.command()
+def outcome(send_id: int, kind: str = typer.Argument(..., help="reply, bounce, unsubscribe or complaint")):
+    """record what happened to a send. stops the sequence and suppresses where needed."""
+    from .sequence import scheduler as sch
+    conn = _conn()
+    for a in sch.record_outcome(conn, sch.load_cfg(CONFIG_DIR), send_id, kind) or ["recorded"]:
+        typer.echo(a)
+
+
+@app.command()
+def calendar(days: int = typer.Option(21)):
+    """sends per day and step, from the send log."""
+    conn = _conn()
+    rows = conn.execute("""SELECT date(sent_at) d, step, COUNT(*) n FROM sends GROUP BY d, step ORDER BY d
+                           LIMIT ?""", (days * 4,)).fetchall()
+    cur = None
+    for r in rows:
+        if r["d"] != cur:
+            cur = r["d"]
+            typer.echo(f"{cur}")
+        typer.echo(f"   step {r['step']}: {r['n']}")
+
+
+@app.command()
+def summary():
+    """the whole pipeline in one screen."""
+    from .report.summary import collect, text
+    typer.echo(text(collect(_conn())))
+
+
+@app.command()
+def dashboard(out: Path = typer.Option(None, help="html file to write (default data/dashboard.html)")):
+    """write a local html dashboard. it stays on this machine (data/ is gitignored)."""
+    from .paths import ROOT
+    from .report.summary import collect, dashboard_html
+    path = out or ROOT / "data" / "dashboard.html"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(dashboard_html(collect(_conn())))
+    typer.echo(f"dashboard written to {path}")
 
 
 @app.command()

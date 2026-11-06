@@ -31,6 +31,11 @@ engine write --limit 20 --fake            # full pipeline with the offline fake 
 engine write --limit 20 --yes --max-usd 3 # api mode only (writer_mode: api): real Claude calls, dollar cap
 engine messages --status held             # what QA held back and why
 engine variants                           # variant rotation report
+engine mailboxes add you@second-domain.com --warmup-start 2026-10-01
+engine simulate --days 3                  # scheduler + simulator sender, nothing sent
+engine outcome <send id> reply            # or bounce / unsubscribe / complaint: stops + suppresses
+engine summary                            # whole pipeline in one screen
+engine dashboard                          # local html at data/dashboard.html (not published)
 engine leads --tier A                     # best first, with a one line reason each
 engine stats
 engine suppress add rival.com -r competitor
@@ -55,7 +60,7 @@ fake domains all end in `.test`, so they can never be real companies.
 | 3 | signal engine: expiry, csv signals, best pick, why-now lines | done |
 | 4 | email 1 writer + QA (rules + Claude pass), fallback, hold, cost cap | done, untested live |
 | 4.5 | session writing mode: export brief, write in Claude Code, import, review | done |
-| 5 | sequences, scheduler, simulator | |
+| 5 | 4 step sequence, scheduler, caps + ramp, stop rules, auto pause, simulator | done |
 | 6 | replies | |
 | 7 | linkedin list, reports, a/b | |
 | 8 | real senders (approval needed) | |

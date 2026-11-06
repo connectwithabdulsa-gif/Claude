@@ -1,0 +1,40 @@
+# sending rules (CLAUDE.md section 9). all numbers live here, not in code.
+
+sequence:                       # day offsets from email 1
+  - {step: 1, day: 0, thread: new}
+  - {step: 2, day: 3, thread: same}
+  - {step: 3, day: 7, thread: same}
+  - {step: 4, day: 14, thread: new}
+min_gap_days: 3                 # never shorter, even if a day was skipped
+
+require_approval: true          # email 1 must be approved in `engine review` before it can be scheduled
+
+ramp:                           # per mailbox, per day
+  warmup_days: 21               # no real prospects before this
+  start: 10                     # first week after warmup
+  weekly_increase: 5
+  cap: 30
+
+window:
+  start_hour: 9                 # recipient local time
+  end_hour: 17
+  first_email_days: [tue, wed, thu]     # new sequences start tuesday to thursday
+  followup_days: [mon, tue, wed, thu, fri]
+  jitter_minutes: [3, 8]        # random gap between two sends from the same mailbox
+
+one_active_per_company: true    # never two people at one company in sequence at the same time
+
+health:                         # auto pause + alert
+  bounce_window: 200            # last N sends of a mailbox
+  bounce_pause_pct: 3.0
+  min_sample: 20                # my addition, not in CLAUDE.md: rate check starts after 20 sends
+  pause_on_any_complaint: true
+
+timezones:                      # recipient country -> timezone
+  us: America/New_York
+  gb: Europe/London
+  au: Australia/Sydney
+  default: America/New_York
+
+headers:
+  list_unsubscribe: true        # mailto + one click post header on every email

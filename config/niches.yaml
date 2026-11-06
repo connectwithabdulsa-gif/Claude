@@ -6,6 +6,7 @@
 amazon_agency:
   label: amazon agency
   plural: amazon agencies
+  target_description: amazon brands that fit your clients
   keywords_strong: [amazon agency, amazon seller, amazon marketing, amazon ppc, marketplace agency, ecommerce agency, e-commerce agency]
   keywords_weak: [ecommerce, e-commerce, shopify, marketing & advertising, advertising agencies, marketing agency]
   naics_weak: ["541810", "541613", "541890"]
@@ -13,6 +14,7 @@ amazon_agency:
 saas:
   label: b2b saas
   plural: b2b saas founders
+  target_description: the companies that match your best customers
   keywords_strong: [saas, software as a service, b2b software]
   keywords_weak: [computer software, software development, software publishers]
   naics_weak: ["5112", "513210", "5182", "541511"]
@@ -20,6 +22,7 @@ saas:
 financial:
   label: financial firm
   plural: financial firms
+  target_description: the businesses or people who fit your best clients
   keywords_strong: [mortgage broker, mortgage, wealth management, financial advisor, insurance agency, business lending, fintech]
   keywords_weak: [financial services, insurance, investment advice, lending]
   naics_strong: ["522310", "523930", "524210"]
@@ -28,6 +31,7 @@ financial:
 recruiting:
   label: recruiting firm
   plural: recruiting firms
+  target_description: companies that are hiring in the roles you place
   keywords_strong: [recruiting, recruitment agency, staffing, executive search, talent acquisition agency]
   keywords_weak: [staffing & recruiting, employment services, human resources services]
   naics_strong: ["561311", "561312", "561320"]
@@ -36,6 +40,7 @@ recruiting:
 msp:
   label: msp
   plural: msps
+  target_description: local and mid size businesses that fit your best accounts
   keywords_strong: [managed service provider, managed it, msp, it support services, managed security]
   keywords_weak: [it services, information technology & services, computer systems design]
   naics_strong: ["541513"]
@@ -44,6 +49,7 @@ msp:
 freight:
   label: freight brokerage
   plural: freight brokerages
+  target_description: shippers that match your lanes
   keywords_strong: [freight broker, freight brokerage, 3pl, third party logistics, freight forwarding]
   keywords_weak: [logistics & supply chain, transportation, trucking, logistics]
   naics_strong: ["488510"]

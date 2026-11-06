@@ -170,6 +170,21 @@ CREATE TABLE IF NOT EXISTS api_calls (
   run_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS sequence_state (
+  lead_id INTEGER PRIMARY KEY REFERENCES leads(id),
+  company_id INTEGER,
+  mailbox_id INTEGER REFERENCES mailboxes(id),
+  thread_subject TEXT,
+  first_message_id TEXT,          -- Message-ID of email 1, for In-Reply-To on same thread follow ups
+  step_done INTEGER NOT NULL DEFAULT 0,
+  next_step INTEGER,
+  next_due TEXT,                  -- date (YYYY-MM-DD)
+  status TEXT NOT NULL DEFAULT 'active',   -- active, stopped, completed
+  stop_reason TEXT,
+  started_at TEXT,
+  updated_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS email_exports (
   id INTEGER PRIMARY KEY,
   export_id TEXT NOT NULL,
@@ -211,6 +226,9 @@ def now() -> str:
 MIGRATIONS = {
     "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT",
               "fallback": "INTEGER"},
+    "sends": {"lead_id": "INTEGER", "step": "INTEGER", "message_id_header": "TEXT", "outcome": "TEXT",
+              "outcome_at": "TEXT", "headers_json": "TEXT"},
+    "mailboxes": {"live_from": "TEXT"},
     "messages": {"status": "TEXT", "model": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
                  "cost_usd": "REAL", "uses_fallback": "INTEGER", "facts_json": "TEXT", "signal_class": "TEXT",
                  "attempts": "INTEGER", "review": "TEXT", "reviewed_at": "TEXT", "review_note": "TEXT",

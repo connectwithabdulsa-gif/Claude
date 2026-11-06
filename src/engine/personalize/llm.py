@@ -66,6 +66,7 @@ class AnthropicLLM:
 
 class FakeLLM:
     """deterministic stand in. `writer` and `qa` are functions (user_json: dict) -> dict."""
+    is_fake = True
 
     def __init__(self, writer: Callable[[dict], dict], qa: Callable[[dict], dict]):
         self.writer, self.qa = writer, qa

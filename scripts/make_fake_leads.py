@@ -38,8 +38,8 @@ def lead(rng, i):
     }
 
 
-def build_main(rng):
-    rows = [lead(rng, i) for i in range(40)]
+def build_main(rng, n_base=40):
+    rows = [lead(rng, i) for i in range(n_base)]
     # planted problems for the verify/score demo
     rows[6]["Work Email"] = "info@" + rows[6]["Work Email"].split("@")[1]           # role mailbox
     rows[7]["Work Email"] = rows[7]["First Name"].lower() + "@gmail.com"            # personal address
@@ -55,7 +55,7 @@ def build_main(rng):
         rows.append(d)
     # 2 rows with no email
     for i in (41, 42):
-        d = lead(rng, i); d["Work Email"] = ""; rows.append(d)
+        d = lead(rng, n_base + i - 41); d["Work Email"] = ""; rows.append(d)
     # 2 people at a competitor domain (suppress rival-outbound.test in the demo)
     for name in ("Kai", "Rosa"):
         d = lead(rng, 43)
@@ -78,7 +78,7 @@ def build_main(rng):
 def build_second(rng, main_rows):
     """10 rows: 5 already imported, 5 new."""
     seen = [r for r in main_rows if r["Work Email"].strip()][:5]
-    return [dict(r) for r in seen] + [lead(rng, 100 + i) for i in range(5)]
+    return [dict(r) for r in seen] + [lead(rng, 1000 + i) for i in range(5)]
 
 
 def write(path, rows):
@@ -89,9 +89,10 @@ def write(path, rows):
 
 if __name__ == "__main__":
     out = Path(sys.argv[1] if len(sys.argv) > 1 else "data/demo")
+    n_base = int(sys.argv[2]) if len(sys.argv) > 2 else 40
     out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(7)
-    main = build_main(rng)
+    main = build_main(rng, n_base)
     write(out / "clay_export_1.csv", main)
     write(out / "clay_export_2.csv", build_second(rng, main))
     print(f"wrote {len(main)} rows to {out/'clay_export_1.csv'} and 10 rows to {out/'clay_export_2.csv'}")

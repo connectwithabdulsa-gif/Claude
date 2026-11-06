@@ -97,3 +97,26 @@ def check(email: dict, ctx: dict, rules: dict, use_signal: bool) -> list[str]:
     if use_signal and "signal" not in (email.get("facts_used") or []):
         fails.append("signal fact not marked as used")
     return fails
+
+
+def check_followup(body: str, subject: str | None, rules: dict) -> list[str]:
+    """lighter checks for steps 2 to 4: no word floor, at most one ask, same banned list."""
+    fails, low = [], body.lower()
+    for p in rules["banned_phrases"]:
+        if re.search(r"(?<![a-z])" + re.escape(p) + r"(?![a-z])", low):
+            fails.append(f"banned phrase '{p}'")
+    if "\u2014" in body or "\u2013" in body:
+        fails.append("em or en dash")
+    if "!" in body:
+        fails.append("exclamation mark")
+    if EMOJI.search(body) or LINK.search(body):
+        fails.append("emoji or link")
+    if body.count("?") > 1:
+        fails.append("more than one ask")
+    if words(body) > rules["email1_words"]["max"]:
+        fails.append("too long")
+    if subject is not None:
+        for p in rules["banned_subject_phrases"]:
+            if p in subject.lower():
+                fails.append(f"subject contains '{p}'")
+    return fails
