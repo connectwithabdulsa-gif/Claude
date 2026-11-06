@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DFY GTM Systems</title>
+<meta name="description" content="done for you outbound. leads auto-enrich in Clay and push to Instantly or Smartlead with zero manual work. $2k flat per month.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --text: #16151a;
+  --muted: #5d5b66;
+  --line: #e6e3dc;
+  --accent: #2f5bff;
+  --accent-ink: #ffffff;
+  --accent-soft: #e9eeff;
+  --good: #1f8a4c;
+  --bad: #b3372b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f12;
+    --surface: #17171c;
+    --text: #f1f0ec;
+    --muted: #a3a1ab;
+    --line: #2a2a31;
+    --accent: #7c97ff;
+    --accent-ink: #0f0f12;
+    --accent-soft: #1d2340;
+    --good: #5fd08f;
+    --bad: #ff8a7d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f12;
+  --surface: #17171c;
+  --text: #f1f0ec;
+  --muted: #a3a1ab;
+  --line: #2a2a31;
+  --accent: #7c97ff;
+  --accent-ink: #0f0f12;
+  --accent-soft: #1d2340;
+  --good: #5fd08f;
+  --bad: #ff8a7d;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.6 Inter, system-ui, -apple-system, sans-serif;
+}
+a { color: inherit; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; gap: 12px; }
+.logo { font-weight: 700; letter-spacing: -0.01em; }
+.logo span { color: var(--accent); }
+
+.btn {
+  display: inline-block; text-decoration: none; font-weight: 600;
+  padding: 12px 20px; border-radius: 10px; background: var(--accent); color: var(--accent-ink);
+  white-space: nowrap;
+}
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn.sm { padding: 8px 14px; font-size: 15px; }
+
+section { padding: 64px 0; border-top: 1px solid var(--line); }
+.hero { border-top: 0; padding: 56px 0 72px; }
+.eyebrow { font: 500 13px/1 "JetBrains Mono", monospace; color: var(--accent); letter-spacing: 0.04em; }
+h1 { font-size: clamp(36px, 7vw, 60px); line-height: 1.05; letter-spacing: -0.03em; margin: 16px 0 20px; max-width: 14ch; }
+h2 { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 24px; }
+h3 { font-size: 18px; margin: 0 0 6px; }
+.lede { font-size: 19px; color: var(--muted); max-width: 52ch; margin: 0 0 28px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+
+.flow { display: grid; gap: 12px; margin-top: 8px; }
+@media (min-width: 820px) { .flow { grid-template-columns: repeat(4, 1fr); } }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.step .n { font: 500 12px/1 "JetBrains Mono", monospace; color: var(--muted); margin-bottom: 12px; display: block; }
+
+.pain { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; max-width: 640px; }
+.pain li { padding-left: 28px; position: relative; }
+.pain li::before { content: "×"; position: absolute; left: 0; color: var(--bad); font-weight: 700; }
+
+.grid2 { display: grid; gap: 16px; }
+@media (min-width: 760px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+.check { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.check li { padding-left: 26px; position: relative; }
+.check li::before { content: "✓"; position: absolute; left: 0; color: var(--good); font-weight: 700; }
+.x li::before { content: "×"; color: var(--bad); }
+
+.price { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 18px; padding: 32px 24px; display: grid; gap: 24px; }
+@media (min-width: 760px) { .price { grid-template-columns: 1fr 1fr; padding: 40px; align-items: center; } }
+.amount { font-size: clamp(48px, 9vw, 72px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.amount small { font-size: 20px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+
+details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+details summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+details summary::after { content: "+"; color: var(--muted); }
+details[open] summary::after { content: "–"; }
+details p { margin-top: 10px; color: var(--muted); }
+
+.final { text-align: center; }
+.final h2 { margin-left: auto; margin-right: auto; max-width: 18ch; }
+.final .cta-row { justify-content: center; }
+footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="logo">dfy<span>.</span>gtm systems</div>
+    <a class="btn sm" href="#book">book a call</a>
+  </nav>
+
+  <header class="hero">
+    <div class="eyebrow">done for you outbound</div>
+    <h1>outbound that runs itself.</h1>
+    <p class="lede">leads get found and enriched in Clay, personalized, and pushed straight into Instantly or Smartlead. zero manual work. you just answer replies.</p>
+    <div class="cta-row">
+      <a class="btn" href="#book">book a 15 min call</a>
+      <a class="btn ghost" href="#how">see how it works</a>
+    </div>
+  </header>
+
+  <section>
+    <h2>referrals got you here. they won't get you to the next level.</h2>
+    <ul class="pain">
+      <li>pipeline only moves when you have time to sell</li>
+      <li>you tried outbound. bought a list, hired a VA. bounces and spam.</li>
+      <li>someone has to babysit the lists, the copy, the tools</li>
+      <li>one good month, then a dry one</li>
+    </ul>
+  </section>
+
+  <section id="how">
+    <h2>how it works</h2>
+    <div class="flow">
+      <div class="step"><span class="n">01 / find</span><h3>source in Clay</h3><p class="muted">companies that match your best clients. scored on fit, deal size and proof.</p></div>
+      <div class="step"><span class="n">02 / enrich</span><h3>clean data</h3><p class="muted">email waterfall across providers, then validated. bad emails never send.</p></div>
+      <div class="step"><span class="n">03 / write</span><h3>real first lines</h3><p class="muted">AI pulls something specific from each prospect. routed to the right sequence.</p></div>
+      <div class="step"><span class="n">04 / send</span><h3>auto push</h3><p class="muted">leads land in Instantly or Smartlead on their own. deduped. you get replies.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>what you get</h2>
+    <div class="grid2">
+      <div class="card">
+        <ul class="check">
+          <li>Clay tables built and maintained</li>
+          <li>icp scoring tuned to your best clients</li>
+          <li>email waterfall + validation</li>
+          <li>AI personalization on every lead</li>
+        </ul>
+      </div>
+      <div class="card">
+        <ul class="check">
+          <li>domains, inboxes, dns and warmup set up</li>
+          <li>sequences written and loaded</li>
+          <li>auto push to Instantly or Smartlead</li>
+          <li>weekly tweaks based on reply data</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="price">
+      <div>
+        <div class="eyebrow">pricing</div>
+        <div class="amount">$2k <small>/ month flat</small></div>
+        <p class="muted" style="margin-top:12px">plus infra at cost. domains, inboxes, Clay credits, sending tool. no markup.</p>
+      </div>
+      <div>
+        <ul class="check">
+          <li>no setup fee</li>
+          <li>no long contract</li>
+          <li>you own the domains, inboxes and tables</li>
+          <li>if your clients are worth $2k+, one deal pays for it</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>who it's for</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>good fit</h3>
+        <ul class="check">
+          <li>agencies and b2b service businesses</li>
+          <li>clients worth $2k+</li>
+          <li>you have case studies or results</li>
+          <li>founder still owns sales</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>not a fit</h3>
+        <ul class="check x">
+          <li>ecommerce or b2c</li>
+          <li>offers under $2k</li>
+          <li>no proof yet</li>
+          <li>looking for a magic list</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>faq</h2>
+    <details><summary>do i need Clay or Instantly already?</summary><p>no. i set it all up. if you already have accounts, i'll use them.</p></details>
+    <details><summary>what does infra cost?</summary><p>usually a few hundred a month depending on volume. you pay the tools directly or i pass it through at cost. no markup.</p></details>
+    <details><summary>how fast does it start sending?</summary><p>inboxes warm for 2 to 3 weeks. tables and copy get built in that window, so you go live the day warmup ends.</p></details>
+    <details><summary>do i have to write anything?</summary><p>no. i write the sequences in your voice. you approve once.</p></details>
+    <details><summary>what if i leave?</summary><p>you keep everything. domains, inboxes, tables, copy. it's yours.</p></details>
+  </section>
+
+  <section class="final" id="book">
+    <h2>want outbound that just runs?</h2>
+    <p class="muted">15 min. i'll show you what the build looks like for your business.</p>
+    <div class="cta-row" style="margin-top:20px">
+      <a class="btn" href="#">book a call with abdul</a>
+    </div>
+  </section>
+</div>
+<footer>
+  <div class="wrap">dfy gtm systems. built by abdul.</div>
+</footer>
+</body>
+</html>
