@@ -12,6 +12,9 @@ from .ingest.clay_csv import ClayCsvSource, load_column_map
 from .ingest.explorium import BudgetExceeded, CreditBudget, ExploriumClient, HttpTransport
 from .ingest.importer import run_import
 from .paths import CONFIG_DIR, db_path
+from .score.scorer import Config as ScoreConfig, score_all
+from .verify.local import LocalVerifier
+from .verify.runner import verify_leads
 
 app = typer.Typer(no_args_is_help=True, add_completion=False,
                   help="DFY GTM Systems outbound engine. dry run by default.")
@@ -151,6 +154,46 @@ def find(
     typer.echo(f"  credits spent       {r.credits_spent} of {max_credits}"
                + (f"  ({r.unknown_cost_calls} call(s) did not report cost, counted at reserve)"
                   if r.unknown_cost_calls else ""))
+
+
+@app.command()
+def verify(
+    offline: bool = typer.Option(False, "--offline", help="skip the MX lookup (marks it unchecked)"),
+    redo: bool = typer.Option(False, "--redo", help="re-check leads that were already verified"),
+):
+    """free email checks: syntax, role mailbox, personal domain, domain match, MX, source status."""
+    conn = _conn()
+    counts = verify_leads(conn, LocalVerifier(offline=offline), only_unverified=not redo)
+    typer.echo(f"verified  ok {counts['ok']}  risky {counts['risky']}  fail {counts['fail']}")
+    if offline:
+        typer.echo("note: offline, so mail servers were not checked")
+
+
+@app.command()
+def score():
+    """score every lead 0 to 100 and set tier A, B, C or dnc. weights in config/scoring.yaml."""
+    conn = _conn()
+    c = score_all(conn, ScoreConfig.load(CONFIG_DIR))
+    typer.echo(f"scored  A {c['A']}  B {c['B']}  C {c['C']}  dnc {c['dnc']}")
+
+
+@app.command()
+def leads(
+    tier: str = typer.Option(None, help="A, B, C or dnc"),
+    limit: int = typer.Option(50),
+    reasons: bool = typer.Option(True, "--reasons/--no-reasons"),
+):
+    """list scored leads, best first."""
+    conn = _conn()
+    q = ("SELECT l.*, c.name AS company FROM leads l LEFT JOIN companies c ON c.id=l.company_id"
+         + (" WHERE l.tier=?" if tier else "") + " ORDER BY l.score DESC, l.id LIMIT ?")
+    rows = conn.execute(q, ((tier, limit) if tier else (limit,))).fetchall()
+    for r in rows:
+        name = f"{r['first_name'] or ''} {r['last_name'] or ''}".strip()
+        typer.echo(f"{(r['tier'] or '-'):<4}{(r['score'] if r['score'] is not None else '-'):>4}  "
+                   f"{name[:18]:<18} {(r['company'] or '')[:22]:<22} {r['email']}")
+        if reasons and r["score_reason"]:
+            typer.echo(f"          {r['score_reason']}")
 
 
 @suppress_app.command("add")

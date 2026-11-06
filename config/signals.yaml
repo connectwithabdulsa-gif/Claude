@@ -1,0 +1,41 @@
+# signal types (CLAUDE.md section 5). window_days = use window. strength keys map to
+# scoring.yaml signal.strength_points. phase 3 adds the why now line per signal.
+# `sources` lists the raw signal types that map to each class
+# (Explorium event names, see developers.explorium.ai/v2/businesses/events).
+
+hiring_sales:
+  strength: high
+  window_days: 30
+  sources: [hiring_in_sales_department]
+new_leader:
+  strength: high
+  window_days: 90
+  sources: [executive_joined_company, prospect_changed_role]
+funding:
+  strength: medium_high
+  window_days: 60
+  sources: [new_funding_round]
+sales_team_growth:
+  strength: medium
+  window_days: 60
+  sources: [increase_in_sales_department]
+hiring_marketing:
+  strength: medium
+  window_days: 30
+  sources: [hiring_in_marketing_department]
+outbound_tool:
+  strength: medium
+  window_days: null        # current, no expiry
+  sources: [outbound_tool_in_stack]
+expansion:
+  strength: medium
+  window_days: 60
+  sources: [new_office, new_product, new_partnership]
+trade_show:
+  strength: medium_high
+  window_days: 60
+  sources: [trade_show]
+post_like:
+  strength: low
+  window_days: 1
+  sources: [linkedin_reaction]

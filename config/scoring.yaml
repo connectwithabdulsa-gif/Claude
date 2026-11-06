@@ -1,0 +1,36 @@
+# scoring weights (CLAUDE.md section 9). total 100.
+# change numbers here, not in code. every score gets a one line reason.
+
+tiers:
+  A: 75
+  B: 55
+  C: 40        # below this = dnc (do not contact)
+
+icp_fit:       # max 40
+  niche_strong: 15
+  niche_weak: 8
+  size_ok: 10            # headcount roughly 2 to 200
+  size_max: 200
+  title_top: 15          # founder, owner, ceo, managing partner, president
+  title_lead: 12         # head of growth / sales / bd, vp sales
+
+signal:        # max 35. best single active signal, decays linearly to `decay_floor` at the window edge
+  strength_points: {high: 35, medium_high: 28, medium: 20, low: 5}
+  decay_floor: 0.5       # share of points left on the last day of the window. 0 after the window.
+
+data_quality:  # max 15
+  verify_ok: 7
+  verify_risky: 3
+  domain_match: 4
+  decision_maker: 4
+
+geo:           # max 10
+  points: 10
+  allowed: [us, gb, au]
+  dnc: [de, at, ch]      # DACH off by default
+
+titles:
+  top: [founder, co-founder, cofounder, owner, ceo, chief executive, managing partner, managing director, president, principal]
+  # these never count as decision makers, even if a top word appears (product owner, vice president of x)
+  exclude: [product owner, assistant, intern, partner manager, channel partner, partnerships manager, executive assistant]
+  lead: [head of growth, head of sales, sales lead, head of business development, head of bd, vp sales, vp of sales, vice president of sales, chief revenue officer, cro, vp growth, head of marketing, cmo, partner]

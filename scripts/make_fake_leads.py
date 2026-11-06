@@ -39,6 +39,14 @@ def lead(rng, i):
 
 def build_main(rng):
     rows = [lead(rng, i) for i in range(40)]
+    # planted problems for the verify/score demo
+    rows[6]["Work Email"] = "info@" + rows[6]["Work Email"].split("@")[1]           # role mailbox
+    rows[7]["Work Email"] = rows[7]["First Name"].lower() + "@gmail.com"            # personal address
+    rows[8]["Job Title"] = "Marketing Coordinator"                                  # not a decision maker
+    rows[9]["Work Email"] = rows[9]["First Name"].lower() + "@other-company.test"   # domain mismatch
+    rows[10]["Employee Count"] = "1001-5000"                                        # too big
+    for r in rows[11:15]:
+        r["Email Status"] = ""                                                      # no source status
     # 4 in-file duplicates (same email, different case and spacing)
     for src in rows[:4]:
         d = dict(src)
