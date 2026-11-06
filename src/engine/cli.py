@@ -245,6 +245,113 @@ def signals_list(limit: int = typer.Option(30), expired: bool = typer.Option(Fal
             typer.echo(f"{head} plain fallback (no usable signal)")
 
 
+@app.command()
+def write(
+    limit: int = typer.Option(20, min=1, max=500),
+    tiers: str = typer.Option("A,B,C", help="comma list of tiers to write for"),
+    fake: bool = typer.Option(False, "--fake", help="use the offline fake writer (no api, no cost)"),
+    yes: bool = typer.Option(False, "--yes", help="actually call the api after showing the estimate"),
+    max_usd: float = typer.Option(0.0, help="hard dollar cap for a real run (required with --yes)"),
+    redo: bool = typer.Option(False, "--redo", help="write again for leads that already have an email 1"),
+):
+    """write email 1 + QA. without --fake or --yes this only prints a cost estimate."""
+    from datetime import datetime, timezone
+    from .personalize import fake_writer, prompts, writer as w
+    from .personalize.llm import AnthropicLLM, FakeLLM
+
+    conn = _conn()
+    cfg = w.load_cfg(CONFIG_DIR)
+    leads_ = w.eligible_leads(conn, [t.strip() for t in tiers.split(",")], limit, redo)
+    today = datetime.now(timezone.utc)
+    if not leads_:
+        typer.echo("no eligible leads (needs a tier, a verified or risky email, and no email 1 yet)")
+        return
+
+    if fake:
+        llm = FakeLLM(fake_writer.writer, fake_writer.qa)
+    else:
+        # dry run sends nothing anywhere (rule 1), so it estimates offline.
+        # with --yes we start the client and count tokens properly before writing.
+        llm = None
+        if yes:
+            if max_usd <= 0:
+                raise typer.BadParameter("--yes needs --max-usd N (a hard dollar cap)")
+            try:
+                llm = AnthropicLLM(cfg["llm"])
+            except Exception as e:  # noqa: BLE001  no credentials
+                raise typer.BadParameter(f"anthropic client could not start: {e}. add ANTHROPIC_API_KEY to .env")
+        sample = w.build_context(conn, leads_[0], cfg["niches"], today)
+        try:
+            est = w.estimate(llm, cfg, sample, len(leads_))
+        except Exception:  # noqa: BLE001  count_tokens failed
+            est = w.estimate(None, cfg, sample, len(leads_))
+        typer.echo(f"ESTIMATE  {len(leads_)} leads  writer {est['models']['writer']}, qa {est['models']['qa']}")
+        typer.echo(f"  input tokens per call   writer {est['writer_input_tokens']}, qa {est['qa_input_tokens']}  ({est['method']})")
+        typer.echo(f"  per lead                ${est['per_lead_typical']} typical, ${est['per_lead_worst']} worst (retry as fallback)")
+        typer.echo(f"  batch                   ${est['batch_typical']} typical, ${est['batch_worst']} worst")
+        typer.echo("  note: prompt caching on the system prompt should bring the real cost below this.")
+        if not yes:
+            typer.echo(f"nothing was sent to the api. to run: engine write --limit {limit} --yes --max-usd {est['batch_worst']}")
+            return
+        if est["batch_worst"] > max_usd:
+            typer.echo(f"note: worst case ${est['batch_worst']} is above the ${max_usd} cap, so the run stops early.")
+
+    spend = w.Spend()
+    sys_w, sys_q = prompts.system_prompt(), prompts.qa_system_prompt()
+    per_lead_reserve = 0.0 if fake else est["per_lead_worst"]
+    counts = {"ready": 0, "held": 0, "fallback": 0}
+    for lead in leads_:
+        if not fake and spend.usd + per_lead_reserve > max_usd:
+            typer.echo(f"STOPPED at the ${max_usd} cap (spent ${spend.usd:.4f}). remaining leads not written.")
+            break
+        if redo:   # replace unsent drafts, never touch an email that has a send record
+            conn.execute("DELETE FROM messages WHERE lead_id=? AND step=1 AND id NOT IN (SELECT message_id FROM sends)",
+                         (lead["id"],))
+        o = w.write_one(conn, llm, cfg, lead, today, spend, sys_w, sys_q)
+        conn.commit()
+        counts[o.status] += 1
+        counts["fallback"] += int(o.uses_fallback)
+    typer.echo(f"written  ready {counts['ready']}  held {counts['held']}  (used plain fallback: {counts['fallback']})")
+    typer.echo(f"api      {'fake, $0' if fake else f'{spend.calls} calls, ${spend.usd:.4f}, {spend.input_tokens} in / {spend.output_tokens} out tokens'}")
+
+
+@app.command()
+def messages(
+    status: str = typer.Option(None, help="ready or held"),
+    limit: int = typer.Option(10),
+    full: bool = typer.Option(True, "--full/--short"),
+):
+    """show written email 1s with QA verdicts."""
+    import json as _j
+    conn = _conn()
+    q = ("SELECT m.*, l.first_name, l.email, l.tier, c.name AS company FROM messages m JOIN leads l ON l.id=m.lead_id"
+         " LEFT JOIN companies c ON c.id=l.company_id WHERE m.step=1" + (" AND m.status=?" if status else "")
+         + " ORDER BY m.id LIMIT ?")
+    for r in conn.execute(q, ((status, limit) if status else (limit,))):
+        typer.echo(f"--- #{r['id']} {r['status'].upper()}  tier {r['tier']}  {r['email']}  variant {r['variant']}"
+                   f"  {r['signal_class']}  tries {r['attempts']}")
+        reasons = _j.loads(r["qa_reasons"] or "[]")
+        for x in reasons:
+            typer.echo(f"    qa: {x}")
+        if full and r["body"]:
+            typer.echo(f"subject: {r['subject']}")
+            typer.echo(r["body"])
+
+
+@app.command()
+def variants():
+    """variant rotation report: how many email 1s per signal class and variant."""
+    conn = _conn()
+    rows = conn.execute("SELECT signal_class, variant, status, COUNT(*) n FROM messages WHERE step=1"
+                        " GROUP BY signal_class, variant, status ORDER BY signal_class, variant").fetchall()
+    table: dict = {}
+    for r in rows:
+        table.setdefault(r["signal_class"], {}).setdefault(r["variant"], {})[r["status"]] = r["n"]
+    for cls, vs in table.items():
+        cells = "  ".join(f"{v}: {d.get('ready', 0)} ready/{d.get('held', 0)} held" for v, d in sorted(vs.items()))
+        typer.echo(f"{cls:<18} {cells}")
+
+
 @suppress_app.command("add")
 def suppress_add(
     value: str = typer.Argument(..., help="email or domain"),

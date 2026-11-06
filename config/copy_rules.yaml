@@ -1,0 +1,46 @@
+# deterministic QA rules (CLAUDE.md section 7). the LLM QA pass runs on top of these.
+email1_words: {min: 50, max: 90}
+subject: {min_words: 2, max_words: 6, max_chars: 50}
+banned_phrases:
+  - hope this finds you well
+  - i wanted to reach out
+  - reaching out
+  - i came across
+  - i noticed that
+  - touch base
+  - circle back
+  - delve
+  - leverage
+  - unlock
+  - elevate
+  - seamless
+  - robust
+  - streamline
+  - game changer
+  - game-changer
+  - cutting edge
+  - cutting-edge
+  - innovative
+  - tailored
+  - solutions
+  - synergy
+  - revolutionize
+  - supercharge
+  - empower
+  - passionate
+  - excited to
+  - best in class
+  - best-in-class
+  - turnkey
+  - ai powered
+  - ai-powered
+  - just checking in
+  - just bumping this
+  - not just
+banned_subject_phrases: [quick question, "re:", "fwd:", "fw:"]
+# "scale" is banned as a verb. these catch the common verb forms.
+banned_patterns:
+  - "\\bscal(e|es|ing)\\s+(your|the|up|their|our)\\b"
+  - "\\bto scale\\b"
+# words allowed to start a sentence with a capital letter besides names in the facts
+proper_nouns: [Clay, Smartlead, Instantly, Apollo, LinkedIn, Miro, Amazon, SDR, BDR, AE, DFY]

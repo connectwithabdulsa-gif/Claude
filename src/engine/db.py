@@ -199,6 +199,9 @@ def now() -> str:
 MIGRATIONS = {
     "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT",
               "fallback": "INTEGER"},
+    "messages": {"status": "TEXT", "model": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
+                 "cost_usd": "REAL", "uses_fallback": "INTEGER", "facts_json": "TEXT", "signal_class": "TEXT",
+                 "attempts": "INTEGER"},
     "signals": {"data_json": "TEXT", "signal_class": "TEXT", "expires_at": "TEXT", "expired_at": "TEXT"},
 }
 
