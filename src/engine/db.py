@@ -170,6 +170,20 @@ CREATE TABLE IF NOT EXISTS api_calls (
   run_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS signal_picks (
+  id INTEGER PRIMARY KEY,
+  lead_id INTEGER NOT NULL REFERENCES leads(id),
+  signal_id INTEGER NOT NULL REFERENCES signals(id),
+  rank INTEGER NOT NULL,
+  signal_class TEXT NOT NULL,
+  points INTEGER,
+  age_days INTEGER,
+  saw_line TEXT NOT NULL,
+  matters_line TEXT NOT NULL,
+  short_line TEXT,
+  picked_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_field_values ON field_values(entity, entity_id);
 CREATE INDEX IF NOT EXISTS idx_leads_company ON leads(company_id);
 CREATE INDEX IF NOT EXISTS idx_events_action ON events(action);
@@ -183,7 +197,9 @@ def now() -> str:
 
 # columns added after the first schema. connect() adds them to older databases.
 MIGRATIONS = {
-    "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT"},
+    "leads": {"verify_reason": "TEXT", "verified_at": "TEXT", "niche": "TEXT", "scored_at": "TEXT",
+              "fallback": "INTEGER"},
+    "signals": {"data_json": "TEXT", "signal_class": "TEXT", "expires_at": "TEXT", "expired_at": "TEXT"},
 }
 
 

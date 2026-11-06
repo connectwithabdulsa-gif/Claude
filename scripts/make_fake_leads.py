@@ -19,7 +19,7 @@ NICHES = [
 COUNTRIES = ["United States", "United States", "United Kingdom", "Australia", "Germany"]
 HEADERS = ["First Name", "Last Name", "Job Title", "Work Email", "Email Status", "LinkedIn Profile",
            "Company Name", "Company Domain", "Industry", "Employee Count", "Country",
-           "Job Openings"]
+           "Job Openings", "Job Posted Date", "Tech Stack"]
 
 
 def lead(rng, i):
@@ -33,7 +33,8 @@ def lead(rng, i):
         "LinkedIn Profile": f"https://linkedin.com/in/{first.lower()}-{last.lower()}-{i}",
         "Company Name": f"{slug.title()} Ltd", "Company Domain": f"https://www.{domain}/",
         "Industry": industry, "Employee Count": rng.choice(["2-10", "11-50", "51-200"]),
-        "Country": rng.choice(COUNTRIES), "Job Openings": rng.choice(["", "SDR", "Account Executive"]),
+        "Country": rng.choice(COUNTRIES), "Job Openings": rng.choice(["", "", "SDR", "Account Executive", "Designer"]),
+        "Job Posted Date": "", "Tech Stack": rng.choice(["", "", "HubSpot, Smartlead", "Apollo", "Shopify"]),
     }
 
 
@@ -66,6 +67,10 @@ def build_main(rng):
     rows.append(d)
     d = dict(rows[5]); d["First Name"] = "Second"; d["Work Email"] = "second@" + rows[5]["Work Email"].split("@")[1]
     rows.append(d)
+    today = __import__("datetime").date.today()
+    for j, r in enumerate(rows):
+        if r["Job Openings"] and j % 3:          # every third job opening has no date: must be skipped
+            r["Job Posted Date"] = (today - __import__("datetime").timedelta(days=4 + j % 40)).isoformat()
     rng.shuffle(rows)
     return rows
 

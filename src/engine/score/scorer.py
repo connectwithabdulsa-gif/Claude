@@ -26,10 +26,15 @@ class Config:
         rd = lambda n: yaml.safe_load((config_dir / n).read_text()) or {}
         return cls(rd("scoring.yaml"), rd("niches.yaml"), rd("signals.yaml"))
 
+    @property
+    def signal_classes(self) -> dict:
+        return self.signals.get("classes", self.signals)
+
     def signal_class(self, raw_type: str) -> tuple[str, dict] | None:
-        if raw_type in self.signals:
-            return raw_type, self.signals[raw_type]
-        for key, spec in self.signals.items():
+        classes = self.signal_classes
+        if raw_type in classes:
+            return raw_type, classes[raw_type]
+        for key, spec in classes.items():
             if raw_type in (spec.get("sources") or []):
                 return key, spec
         return None

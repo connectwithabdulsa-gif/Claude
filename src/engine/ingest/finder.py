@@ -111,7 +111,13 @@ def _event_value(ev: dict) -> str:
         return " ".join(x for x in [stage, f"${amt:,.0f}" if isinstance(amt, (int, float)) else ""] if x) or name
     if name == "executive_joined_company":
         return f"{d.get('full_name', '')} joined as {d.get('job_role_title', '')}".strip()
-    for k in ("product_name", "partner_name", "location", "description", "link"):
+    if name == "new_office" and d.get("office_location"):
+        return f"new office in {d['office_location']}"
+    if name == "new_partnership" and d.get("partner_company"):
+        return f"partnership with {d['partner_company']}"
+    if name.startswith("increase_in_") and d.get("department_change") is not None:
+        return f"{d.get('department', name)} headcount change {d['department_change']}"
+    for k in ("product_name", "title", "snippet", "link"):
         if d.get(k):
             return str(d[k])
     return name
@@ -278,7 +284,7 @@ def _store_fields(conn, entity, entity_id, values: dict, source_ref, fetched_at,
 def _store_signal(conn, company_id, ev, fetched_at):
     name = ev.get("event_name") or (ev.get("data") or {}).get("event_name") or "unknown"
     conn.execute(
-        "INSERT INTO signals (company_id, type, value, source, source_field, observed_at, detected_at)"
-        " VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO signals (company_id, type, value, source, source_field, observed_at, detected_at, data_json)"
+        " VALUES (?,?,?,?,?,?,?,?)",
         (company_id, name, _event_value(ev), SOURCE, f"/v2/businesses/events:{ev.get('event_id', '')}",
-         ev.get("event_time"), fetched_at))
+         ev.get("event_time"), fetched_at, json.dumps(ev.get("data") or {})))

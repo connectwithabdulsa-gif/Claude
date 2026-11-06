@@ -13,6 +13,7 @@ from .ingest.explorium import BudgetExceeded, CreditBudget, ExploriumClient, Htt
 from .ingest.importer import run_import
 from .paths import CONFIG_DIR, db_path
 from .score.scorer import Config as ScoreConfig, score_all
+from .signals import engine as sig_engine
 from .verify.local import LocalVerifier
 from .verify.runner import verify_leads
 
@@ -20,6 +21,8 @@ app = typer.Typer(no_args_is_help=True, add_completion=False,
                   help="DFY GTM Systems outbound engine. dry run by default.")
 suppress_app = typer.Typer(no_args_is_help=True, help="manage the suppression list.")
 app.add_typer(suppress_app, name="suppress")
+signals_app = typer.Typer(no_args_is_help=True, help="signal engine: refresh, pick, list.")
+app.add_typer(signals_app, name="signals")
 
 
 def _conn():
@@ -194,6 +197,52 @@ def leads(
                    f"{name[:18]:<18} {(r['company'] or '')[:22]:<22} {r['email']}")
         if reasons and r["score_reason"]:
             typer.echo(f"          {r['score_reason']}")
+
+
+@signals_app.command("refresh")
+def signals_refresh():
+    """detect csv signals, classify every signal, expire stale ones. run before `engine score`."""
+    from datetime import datetime, timezone
+    conn = _conn()
+    d = sig_engine.detect_csv(conn, CONFIG_DIR / "csv_signals.yaml")
+    e = sig_engine.classify_and_expire(conn, ScoreConfig.load(CONFIG_DIR), datetime.now(timezone.utc))
+    typer.echo(f"csv signals   added {d['added']}, skipped no date {d['skipped_no_date']},"
+               f" no match {d['skipped_no_match']}, already had {d['already']}")
+    typer.echo(f"signals       active {e['classified'] - e['expired']}, expired {e['expired']},"
+               f" undated {e['undated']}, unknown type {e['unknown_type']}")
+
+
+@signals_app.command("pick")
+def signals_pick():
+    """pick the best signal per lead (max 2) and write the why-now lines. run after `engine score`."""
+    from datetime import datetime, timezone
+    conn = _conn()
+    r = sig_engine.pick_all(conn, ScoreConfig.load(CONFIG_DIR), datetime.now(timezone.utc))
+    typer.echo(f"picked  with signal {r['with_signal']}, plain fallback {r['fallback']}, skipped dnc {r['skipped_dnc']}")
+
+
+@signals_app.command("list")
+def signals_list(limit: int = typer.Option(30), expired: bool = typer.Option(False, "--expired")):
+    """leads with their picked signal, age and why-now lines. --expired shows stale signals instead."""
+    conn = _conn()
+    if expired:
+        for r in conn.execute("SELECT s.*, c.name FROM signals s LEFT JOIN companies c ON c.id=s.company_id"
+                              " WHERE s.active=0 ORDER BY s.id LIMIT ?", (limit,)):
+            typer.echo(f"expired  {r['name'] or '':<22} {r['signal_class'] or r['type']:<18} seen {str(r['observed_at'])[:10]}")
+        return
+    q = """SELECT l.id, l.first_name, l.tier, l.score, l.fallback, c.name AS company,
+                  p.signal_class, p.age_days, p.saw_line, p.matters_line, p.rank, s.source
+           FROM leads l LEFT JOIN companies c ON c.id=l.company_id
+           LEFT JOIN signal_picks p ON p.lead_id=l.id LEFT JOIN signals s ON s.id=p.signal_id
+           WHERE l.tier != 'dnc' ORDER BY l.score DESC, l.id, p.rank LIMIT ?"""
+    for r in conn.execute(q, (limit,)):
+        head = f"{r['tier']:<2} {r['score']:>3}  {(r['first_name'] or ''):<8} {(r['company'] or '')[:20]:<20}"
+        if r["signal_class"]:
+            age = f"{r['age_days']}d" if r["age_days"] is not None else "current"
+            typer.echo(f"{head} {r['signal_class']:<16} {age:>7}  [{r['source']}]")
+            typer.echo(f"{'':>8}{r['saw_line']} {r['matters_line']}")
+        else:
+            typer.echo(f"{head} plain fallback (no usable signal)")
 
 
 @suppress_app.command("add")

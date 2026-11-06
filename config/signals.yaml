@@ -1,41 +1,107 @@
-# signal types (CLAUDE.md section 5). window_days = use window. strength keys map to
-# scoring.yaml signal.strength_points. phase 3 adds the why now line per signal.
-# `sources` lists the raw signal types that map to each class
-# (Explorium event names, see developers.explorium.ai/v2/businesses/events).
+# signal catalog (CLAUDE.md section 5 + message-library.md section 2).
+#
+# strength      -> scoring.yaml signal.strength_points
+# window_days   -> use window. null = current (no expiry)
+# sources       -> raw signal types that map here (Explorium event names from
+#                  developers.explorium.ai/v2/businesses/events, or csv types from csv_signals.yaml)
+# saw / matters -> the "why you, why now" and "why it matters" lines for email 1.
+#                  lowercase sentences, company names keep their caps. {vars} come only
+#                  from stored signal data. if a var is missing the line is NOT used.
+# short         -> under 60 chars, for the LinkedIn note (phase 7)
+#
+# vars: company, role_title, a_role_title (with a/an), round, a_round, place, product, partner,
+#       tool, show, timeframe, first_name
 
-hiring_sales:
-  strength: high
-  window_days: 30
-  sources: [hiring_in_sales_department]
-new_leader:
-  strength: high
-  window_days: 90
-  sources: [executive_joined_company, prospect_changed_role]
-funding:
-  strength: medium_high
-  window_days: 60
-  sources: [new_funding_round]
-sales_team_growth:
-  strength: medium
-  window_days: 60
-  sources: [increase_in_sales_department]
-hiring_marketing:
-  strength: medium
-  window_days: 30
-  sources: [hiring_in_marketing_department]
-outbound_tool:
-  strength: medium
-  window_days: null        # current, no expiry
-  sources: [outbound_tool_in_stack]
-expansion:
-  strength: medium
-  window_days: 60
-  sources: [new_office, new_product, new_partnership]
-trade_show:
-  strength: medium_high
-  window_days: 60
-  sources: [trade_show]
-post_like:
-  strength: low
-  window_days: 1
-  sources: [linkedin_reaction]
+max_signals_per_email: 1    # CLAUDE.md: max two, one is better
+second_signal_min_points: 20
+
+classes:
+  hiring_sales:
+    strength: high
+    window_days: 30
+    sources: [hiring_in_sales_department]
+    saw: "saw {company} is hiring {a_role_title}."
+    matters: "a new hire takes a while to ramp before meetings show up."
+    short: "{company} is hiring {a_role_title}"
+
+  new_leader:
+    strength: high
+    window_days: 90
+    sources: [executive_joined_company, prospect_changed_role]
+    saw_you: "saw you took over as {role_title} at {company} {timeframe}."
+    saw: "saw {company} brought in a new {role_title} {timeframe}."
+    matters: "the first few months usually mean getting pipeline moving fast."
+    short: "the new {role_title} role at {company}"
+
+  funding:
+    strength: medium_high
+    window_days: 60
+    sources: [new_funding_round]
+    saw: "saw {company} raised {a_round} round."
+    matters: "founder led sales usually gets stretched right after a round."
+    short: "{company} raised {a_round} round"
+
+  sales_team_growth:
+    strength: medium
+    window_days: 60
+    sources: [increase_in_sales_department]
+    saw: "saw the sales team at {company} has grown this quarter."
+    matters: "more reps means more pipeline to keep fed."
+    short: "the sales team growing at {company}"
+
+  hiring_marketing:
+    strength: medium
+    window_days: 30
+    sources: [hiring_in_marketing_department]
+    saw: "saw {company} is hiring {a_role_title}."
+    matters: "growth hires usually mean pipeline is a priority right now."
+    short: "{company} is hiring {a_role_title}"
+
+  outbound_tool:
+    strength: medium
+    window_days: null
+    sources: [outbound_tool_in_stack]
+    saw: "looks like {company} already sends outbound with {tool}."
+    matters: "in my experience the sending is the easy part. the data and follow ups are where the time goes."
+    short: "{company} running outbound with {tool}"
+
+  expansion_office:
+    strength: medium
+    window_days: 60
+    sources: [new_office]
+    saw: "saw {company} is opening in {place}."
+    matters: "a new market means starting pipeline from zero."
+    short: "{company} opening in {place}"
+
+  expansion_product:
+    strength: medium
+    window_days: 60
+    sources: [new_product]
+    saw: "saw {company} launched {product}."
+    matters: "a new offer usually needs its own pipeline."
+    short: "the {product} launch"
+
+  partnership:
+    strength: medium
+    window_days: 60
+    sources: [new_partnership]
+    saw: "saw {company} partnered with {partner}."
+    matters: "new partnerships usually open a new set of buyers to go after."
+    short: "the {partner} partnership"
+
+  trade_show:
+    strength: medium_high
+    window_days: 60
+    sources: [trade_show]
+    saw: "saw {company} is going to {show}."
+    matters: "meeting people there works, but it stops when the show ends."
+    short: "{company} at {show}"
+
+  post_like:
+    strength: low
+    window_days: 1
+    sources: [linkedin_reaction]
+    # weak on its own: P.S. or LinkedIn only, never the opening line
+    saw: null
+    matters: null
+    short: null

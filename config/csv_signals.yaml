@@ -1,0 +1,16 @@
+# signals detected from csv export columns (backup path).
+# a dated signal needs a date column. rows without a date are skipped and counted,
+# because CLAUDE.md rule 5 needs a source and a date for every fact.
+# no real Clay export has been checked yet. fix column names once a sample exists.
+
+clay:
+  - column: Job Openings
+    type: hiring_in_sales_department
+    date_column: Job Posted Date
+    data_key: job_titles          # value split on commas into a list
+    only_if_matches: [sdr, bdr, account executive, sales, business development, ae]
+  - column: Tech Stack
+    type: outbound_tool_in_stack
+    date_column: null             # current signal, seen at import time
+    data_key: tool
+    only_if_matches: [smartlead, instantly, apollo, outreach, lemlist, salesloft, reply.io, woodpecker]

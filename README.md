@@ -19,7 +19,10 @@ engine find amazon_agency --limit 50      # dry run: free counts + credit estima
 engine find amazon_agency --limit 5 --live --max-credits 60   # pulls, hard capped
 engine import path/to/clay_export.csv     # backup path: csv import
 engine verify                             # free email checks (add --offline to skip MX)
+engine signals refresh                    # detect csv signals, expire stale ones
 engine score                              # 0 to 100, tiers A / B / C / dnc
+engine signals pick                       # best signal per lead + why-now lines
+engine signals list                       # what each lead's email 1 will open with
 engine leads --tier A                     # best first, with a one line reason each
 engine stats
 engine suppress add rival.com -r competitor
@@ -41,7 +44,7 @@ fake domains all end in `.test`, so they can never be real companies.
 | 1 | sqlite data layer, Clay csv import, dedupe, suppression | done |
 | 1.5 | lead finder via Explorium (Vibe Prospecting) API, source + date on every field | done, untested live |
 | 2 | verify (free local checks), score, tier | done |
-| 3 | signal engine | |
+| 3 | signal engine: expiry, csv signals, best pick, why-now lines | done |
 | 4 | message writer + QA | |
 | 5 | sequences, scheduler, simulator | |
 | 6 | replies | |
