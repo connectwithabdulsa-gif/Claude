@@ -14,7 +14,10 @@ cp .env.example .env   # fill in later. never commit .env
 
 ## commands (so far)
 ```bash
-engine import path/to/clay_export.csv     # dedupe + suppression on import
+engine find --list                        # configured niche searches
+engine find amazon_agency --limit 50      # dry run: free counts + credit estimate
+engine find amazon_agency --limit 5 --live --max-credits 60   # pulls, hard capped
+engine import path/to/clay_export.csv     # backup path: csv import
 engine stats
 engine suppress add rival.com -r competitor
 engine suppress check someone@rival.com
@@ -33,6 +36,7 @@ fake domains all end in `.test`, so they can never be real companies.
 |---|---|---|
 | 0 | scaffold, rules files, archive old drafts | done |
 | 1 | sqlite data layer, Clay csv import, dedupe, suppression | done |
+| 1.5 | lead finder via Explorium (Vibe Prospecting) API, source + date on every field | done, untested live |
 | 2 | verify (free local checks), score, tier | next |
 | 3 | signal engine | |
 | 4 | message writer + QA | |

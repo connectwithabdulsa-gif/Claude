@@ -146,6 +146,31 @@ CREATE TABLE IF NOT EXISTS events (
   data_json TEXT DEFAULT '{}'
 );
 
+CREATE TABLE IF NOT EXISTS field_values (
+  id INTEGER PRIMARY KEY,
+  entity TEXT NOT NULL CHECK (entity IN ('lead', 'company')),
+  entity_id INTEGER NOT NULL,
+  field TEXT NOT NULL,
+  value TEXT,
+  source TEXT NOT NULL,          -- e.g. explorium, clay_csv
+  source_ref TEXT,               -- endpoint + correlation id, or file:line
+  observed_at TEXT,              -- when the fact happened, if the source says
+  fetched_at TEXT NOT NULL       -- when we pulled it
+);
+
+CREATE TABLE IF NOT EXISTS api_calls (
+  id INTEGER PRIMARY KEY,
+  ts TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  mode TEXT NOT NULL,            -- free or paid
+  records INTEGER,
+  credits INTEGER,               -- as reported by the provider, null if not reported
+  correlation_id TEXT,
+  run_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_field_values ON field_values(entity, entity_id);
 CREATE INDEX IF NOT EXISTS idx_leads_company ON leads(company_id);
 CREATE INDEX IF NOT EXISTS idx_events_action ON events(action);
 CREATE INDEX IF NOT EXISTS idx_signals_lead ON signals(lead_id);

@@ -18,6 +18,8 @@ class ImportResult:
     companies_updated: int = 0
     rejected: Counter = field(default_factory=Counter)
     unmapped_columns: list = field(default_factory=list)
+    lead_ids: dict = field(default_factory=dict)      # source row line -> lead id
+    company_ids: dict = field(default_factory=dict)   # source row line -> company id
 
 
 def _split_name(fields: dict) -> tuple[str, str]:
@@ -89,6 +91,10 @@ def run_import(conn, source: DataSource) -> ImportResult:
             reject("already in database", row, email)
             continue
 
+        if (f.get("email_status") or "").strip().lower() == "invalid":
+            reject("email invalid per source", row, email)
+            continue
+
         why = suppression.check(conn, email, company_domain)
         if why:
             reject("suppressed", row, email)
@@ -98,7 +104,7 @@ def run_import(conn, source: DataSource) -> ImportResult:
         company_id = _upsert_company(conn, company_domain, f, info, result.import_id, result)
         first, last = _split_name(f)
         ts = now()
-        conn.execute(
+        cur = conn.execute(
             """INSERT INTO leads (company_id, email, email_domain, first_name, last_name, title,
                  linkedin_url, country, email_status_source, source, source_file, import_id,
                  imported_at, updated_at, raw_json)
@@ -109,6 +115,8 @@ def run_import(conn, source: DataSource) -> ImportResult:
              json.dumps(row.raw, ensure_ascii=False)),
         )
         result.leads_added += 1
+        result.lead_ids[row.line] = cur.lastrowid
+        result.company_ids[row.line] = company_id
 
     result.unmapped_columns = info.unmapped_columns
     conn.execute(

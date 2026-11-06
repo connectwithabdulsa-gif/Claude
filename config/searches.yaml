@@ -1,0 +1,50 @@
+# one search per niche (CLAUDE.md section 8). filters use Explorium v2 field names
+# from developers.explorium.ai/v2/businesses/fetch_businesses.md and fetch_prospects.md.
+#
+# NAICS codes are the public 2017 NAICS standard (the docs say naics_category takes
+# 2, 4 or 6 digit codes). website_keywords is free text. before the first live run,
+# check these with the free stats call: `engine find <niche>` prints the counts.
+#
+# geo: US, UK, Australia only. DACH is never in this list.
+
+defaults:
+  countries: [us, gb, au]
+  company_size: ["1-10", "11-50", "51-200"]
+  job_levels: [founder, owner, c-suite, president, partner]
+  per_company: 1            # decision makers kept per company
+  lookback_days: 90         # events window. the api allows 30 to 120
+  has_email: true
+
+searches:
+  amazon_agency:
+    niche: Amazon and ecommerce agencies
+    naics: ["541810", "541613", "541890"]
+    website_keywords: ["amazon agency", "amazon seller", "amazon marketing", "ecommerce agency"]
+    events: [hiring_in_sales_department, hiring_in_marketing_department, new_product, new_partnership]
+
+  saas:
+    niche: B2B SaaS founders (seed to Series A)
+    naics: ["5112", "5182", "541511"]
+    company_size: ["1-10", "11-50"]
+    events: [new_funding_round, hiring_in_sales_department, increase_in_sales_department]
+
+  financial:
+    niche: Financial industry
+    naics: ["522310", "523930", "524210", "522291"]
+    events: [hiring_in_sales_department, new_office]
+
+  recruiting:
+    niche: Recruiting and staffing firms
+    naics: ["5613"]
+    events: [hiring_in_sales_department, hiring_in_human_resources_department, new_office]
+
+  msp:
+    niche: IT services and MSPs
+    naics: ["541512", "541513", "541519"]
+    events: [hiring_in_sales_department, new_product, new_office]
+
+  freight:
+    niche: Freight and logistics brokerages
+    naics: ["488510"]
+    job_levels: [founder, owner, c-suite, president, partner, vice president]
+    events: [hiring_in_sales_department, new_office]
