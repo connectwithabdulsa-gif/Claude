@@ -5,6 +5,7 @@ read this before writing anything for abdul. everything public facing follows th
 ## who
 - abdul, founder of DFY GTM Systems
 - GTME (go to market engineer) and Clay expert
+- website: dfygtmsystems.com (link to this in bios, signatures and ps lines)
 - sign off as `abdul`. first name only. no last name, no title in signatures.
 
 ## offer
@@ -69,4 +70,4 @@ banned words: synergy, leverage, revolutionize, cutting edge, game changer, unlo
 ## repo map
 - `outbound/sequences.md` cold email sequences + reply handlers
 - `clay/table-blueprint.md` column by column Clay build
-- `site/index.html` landing page
+- `site/index.html` draft page copy. the live site is dfygtmsystems.com
