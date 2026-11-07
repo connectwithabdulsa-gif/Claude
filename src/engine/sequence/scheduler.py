@@ -22,6 +22,7 @@ from ..score.geo import country_code
 from ..score.scorer import _company_view
 from ..send.base import OutgoingEmail, build_headers
 from . import templates
+from ..casing import sentence_case
 
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
@@ -180,8 +181,8 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
                 log_event(conn, "followup_held", "lead", lead["id"], "; ".join(fails), step=step)
                 continue
             same = _thread(sc, step) == "same"
-            subject = job["thread_subject"] if same else subj
-            body = f"{text}\n\n{footer(cfg['sender'])}"
+            subject = job["thread_subject"] if same else sentence_case(subj)
+            body = sentence_case(f"{text}\n\n{footer(cfg['sender'])}")
             in_reply_to = job["first_message_id"] if same else None
             conn.execute("INSERT INTO messages (lead_id, step, subject, body, qa_verdict, qa_reasons, created_at, status,"
                          " model, review, writer_mode) VALUES (?,?,?,?,'rules pass','[]',?,'ready','template','auto',"

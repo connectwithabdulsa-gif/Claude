@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from engine.casing import sentence_case
 from engine import suppression
 from engine.paths import CONFIG_DIR
 from engine.replies import classify as rc
@@ -77,7 +78,7 @@ def test_bounce_and_unsubscribe_act_before_classification(world):
     assert u.category == "unsubscribe" and suppression.check(world, "p0@co0.test")
     row = dict(world.execute("SELECT * FROM replies WHERE id=?", (u.reply_id,)).fetchone())
     assert row["status"] == "classified" and row["draft_status"] == "pending"   # confirmation waits for abdul
-    assert row["draft"] == CFG["replies"]["unsubscribe_confirmation"]
+    assert row["draft"] == sentence_case(CFG["replies"]["unsubscribe_confirmation"])
 
 
 def test_unsubscribe_word_in_quoted_thread_is_ignored():

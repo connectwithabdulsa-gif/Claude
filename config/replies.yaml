@@ -33,4 +33,4 @@ instant:
 
 # numbers a draft may contain besides those in the lead's facts or the reply itself
 draft_allowed_numbers: ["15", "2,000", "2000", "30"]
-unsubscribe_confirmation: "done, you're removed. sorry about that."
+unsubscribe_confirmation: "Done, you're removed. Sorry about that."

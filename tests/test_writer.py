@@ -116,7 +116,7 @@ def test_good_path_ready_with_footer_and_rotation(conn):
     outs, llm = _run(conn, _good_writer)
     assert [o.status for o in outs] == ["ready"] * 3 and not any(o.uses_fallback for o in outs)
     assert [o.variant for o in outs] == ["v1", "v2", "v3"]
-    assert outs[0].body.endswith("not for you? just say so and i'll stop.") and "[ADD PHYSICAL ADDRESS]" in outs[0].body
+    assert outs[0].body.endswith("Not for you? Just say so and I'll stop.") and "[ADD PHYSICAL ADDRESS]" in outs[0].body
     assert llm.calls == ["writer", "qa"] * 3
 
 

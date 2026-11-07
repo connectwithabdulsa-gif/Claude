@@ -6,6 +6,7 @@ from datetime import date
 from .. import suppression
 from ..db import now
 from ..signals.render import clean_company
+from ..casing import sentence_case
 
 CONNECT = "hey {first}, saw {signal}. i work on outbound systems for {plural}. would be good to connect."
 CONNECT_PLAIN = "hey {first}, i work on outbound systems for {plural}. would be good to connect."
@@ -37,6 +38,7 @@ def build(conn, cfg: dict, niches: dict, rules: dict, day: date) -> dict:
              "signal": r["short_line"]}
         note = (AFTER_ACCEPT if r["short_line"] else AFTER_ACCEPT_PLAIN).format(**v)
         if not _ok(note, rules, 1000):
+            note = sentence_case(note)
             out["followup"].append({"lead_id": r["lead_id"], "name": r["first_name"], "url": r["linkedin_url"], "note": note})
             conn.execute("INSERT INTO linkedin_log (lead_id, kind, note, list_date, updated_at) VALUES (?,?,?,?,?)",
                          (r["lead_id"], "followup", note, d, now()))
@@ -65,6 +67,7 @@ def build(conn, cfg: dict, niches: dict, rules: dict, day: date) -> dict:
         if _ok(note, rules, li["max_note_chars"]):
             out["skipped"]["note failed checks"] = out["skipped"].get("note failed checks", 0) + 1
             continue
+        note = sentence_case(note)
         url = r["linkedin_url"] if r["linkedin_url"].startswith("http") else "https://" + r["linkedin_url"]
         out["connect"].append({"lead_id": r["id"], "name": f"{r['first_name'] or ''} {r['last_name'] or ''}".strip(),
                                "title": r["title"], "company": clean_company(r["company"]), "url": url,

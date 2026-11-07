@@ -60,9 +60,14 @@ def check(email: dict, ctx: dict, rules: dict, use_signal: bool) -> list[str]:
     for f in ctx.get("facts") or []:
         for w in re.findall(r"\b[A-Z][A-Za-z0-9]*\b", f.get("text", "")):
             allowed.add(w.lower())
-    for w in re.findall(r"\b[A-Z][A-Za-z0-9'’]*\b", body):
-        w = re.sub(r"['’]s$", "", w)            # possessive: Acme's -> Acme
-        if w.lower() not in allowed and w != "I":
+    for m in re.finditer(r"\b[A-Z][A-Za-z0-9'’]*\b", body):
+        w = re.sub(r"['’]s$", "", m.group(0))   # possessive: Acme's -> Acme
+        if re.fullmatch(r"I(['’](m|ll|ve|d))?", w):
+            continue
+        before = body[:m.start()].rstrip(" \t")
+        if not before or before[-1] in ".?!\n":   # sentence case: first word of a sentence or line
+            continue
+        if w.lower() not in allowed:
             fails.append(f"capitalized word '{w}' is not a name")
             break
 

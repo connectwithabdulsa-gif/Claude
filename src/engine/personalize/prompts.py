@@ -31,9 +31,9 @@ def system_prompt(root: Path = ROOT) -> str:
         "- the body has four parts: what we saw and why now (one sentence), why it matters (one short sentence), "
         "who i am and what i do (one or two sentences, plain words), one ask (a question they can answer in one word).\n"
         "- the ask is the free one page map unless `ask` says otherwise. exactly one question mark in the body.\n"
-        "- 50 to 90 words in the body. no links, no sign off, no footer. the code adds 'abdul' and the footer.\n"
+        "- 50 to 90 words in the body. no links, no sign off, no footer. the code adds 'Abdul' and the footer.\n"
         "- follow the `variant` instruction for shape. vary sentence length. do not copy the library examples word for word.\n"
-        "- lowercase sentences. capitalize first names, company names and tool names only.",
+        "- normal sentence case: capital at the start of each sentence, I, names, companies and tools. never all lowercase.",
         "# writing rules (from CLAUDE.md)\n" + _section(rules, 7),
         "# proof points (from CLAUDE.md)\n" + (re.search(r"### Proof points.*?(?=^## )", rules, re.S | re.M) or [""])[0],
         "# message library\n" + library,

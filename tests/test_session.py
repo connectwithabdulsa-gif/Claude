@@ -86,7 +86,7 @@ def test_import_good_signal_email(conn, tmp_path):
     assert r["ready"] == 1 and r["fallback"] == 0
     m = conn.execute("SELECT * FROM messages").fetchone()
     assert m["review"] == "pending" and m["writer_mode"] == "session" and m["cost_usd"] == 0
-    assert m["body"].endswith("not for you? just say so and i'll stop.") and m["signal_class"] == "hiring_sales"
+    assert m["body"].endswith("Not for you? Just say so and I'll stop.") and m["signal_class"] == "hiring_sales"
     # importing the same file twice does nothing
     assert session.import_file(conn, p, CFG)["already_imported"] == 1
 

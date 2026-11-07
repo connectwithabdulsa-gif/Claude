@@ -1,6 +1,6 @@
 # Message library
 
-All copy for DFY GTM Systems outreach. CLAUDE.md rules apply: lowercase sentences, capitalize names, no em dashes, no banned words, one ask, every fact from a real stored field. Treat these as patterns to write from, not text to paste. Rotate variants so sends do not look identical.
+All copy for DFY GTM Systems outreach. CLAUDE.md rules apply: normal sentence case (never all lowercase), capitalize names, no em dashes, no banned words, one ask, every fact from a real stored field. Treat these as patterns to write from, not text to paste. Rotate variants so sends do not look identical.
 
 Variables: `{{first_name}}`, `{{company}}`, `{{role_title}}`, `{{tool}}`, `{{show}}`, `{{place}}`, `{{round}}`, `{{timeframe}}`, `{{niche_plural}}`. Only fill a variable from a real data field. If a field is empty, use the plain fallback email.
 
@@ -188,7 +188,7 @@ if outbound at {{company}} comes up later, just reply and i'll pick it up.
 ```
 
 ## 5. Subject lines
-`{{company}} outbound`, `your sdr job post`, `hiring at {{company}}`, `after the {{round}}`, `{{show}} and outbound`, `{{place}} expansion`, `{{company}} lead cost`, `{{company}} pipeline`. Plain, lowercase, no tricks, no fake "re:". Test two at a time, never more.
+`{{company}} outbound`, `your sdr job post`, `hiring at {{company}}`, `after the {{round}}`, `{{show}} and outbound`, `{{place}} expansion`, `{{company}} lead cost`, `{{company}} pipeline`. Plain, sentence case, no tricks, no fake "re:". Test two at a time, never more.
 
 ## 6. Reply scripts (drafts only, Abdul approves before sending)
 

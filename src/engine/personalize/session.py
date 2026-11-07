@@ -15,6 +15,7 @@ from pathlib import Path
 from ..db import log_event, now
 from . import prompts, qa
 from .writer import build_context, footer, next_variant
+from ..casing import sentence_case
 
 BRIEF = {
     "how_to_write": [
@@ -24,7 +25,7 @@ BRIEF = {
         "write `signal_email` only when `needs` lists it: open with what we saw (the signal fact), then why it matters.",
         "always write `fallback_email`: the plain fallback from message-library.md, no signal.",
         "body: 50 to 90 words, exactly one question mark (the ask), no links, no sign off, no footer.",
-        "subject: 2 to 6 words, under 50 characters, lowercase except names, no re: or fwd:.",
+        "subject: 2 to 6 words, under 50 characters, sentence case (first word and names capitalized), no re: or fwd:.",
         "follow the lead's `variant_instruction` for shape. vary wording between leads.",
     ],
     "answer_format": {"export_id": "<same id>", "emails": [
@@ -132,8 +133,8 @@ def import_file(conn, path: Path, cfg: dict) -> dict:
             """INSERT INTO messages (lead_id, step, variant, subject, body, signal_ids, qa_verdict, qa_reasons,
                  created_at, status, model, cost_usd, uses_fallback, facts_json, signal_class, attempts, review,
                  writer_mode) VALUES (?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (item["lead_id"], row["variant"], (chosen or {}).get("subject", ""),
-             f"{body}\n\n{footer(cfg['sender'])}" if body else "",
+            (item["lead_id"], row["variant"], sentence_case((chosen or {}).get("subject", "")),
+             sentence_case(f"{body}\n\n{footer(cfg['sender'])}") if body else "",
              json.dumps([ctx["signal"]["signal_id"]] if ctx.get("signal") and not used_fallback else []),
              "rules pass" if status == "ready" else "rules fail", json.dumps(reasons), now(), status,
              "claude-code-session", 0.0, int(used_fallback),

@@ -1,7 +1,7 @@
 # who the emails come from. live sending stays blocked while address is the placeholder.
-sign_off: abdul
-company_line: dfy gtm systems
+sign_off: Abdul
+company_line: DFY GTM Systems
 physical_address: "[ADD PHYSICAL ADDRESS]"
-opt_out_line: "not for you? just say so and i'll stop."
+opt_out_line: "Not for you? Just say so and I'll stop."
 booking_link: https://calendly.com/connectwith-abdulsa/new-meeting
 main_domains: [dfygtmsystems.com]   # never send cold email from these (hard rule 2)

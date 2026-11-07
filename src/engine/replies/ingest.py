@@ -11,6 +11,7 @@ from ..db import log_event, now
 from ..normalize import norm_domain, norm_email
 from ..sequence import scheduler as sch
 from .base import IncomingReply
+from ..casing import sentence_case
 
 QUOTE_START = re.compile(r"^(on .{3,120}wrote:|-{2,}\s*original message|from:\s.+|sent from my )", re.I)
 MONTHS = {m: i for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august",
@@ -175,5 +176,5 @@ def ingest_one(conn, cfg_seq: dict, rules: dict, r: IncomingReply) -> IngestResu
 def _classify(conn, rid, category, confidence, reason, draft, by):
     conn.execute("UPDATE replies SET category=?, confidence=?, reason=?, draft=?, draft_status=?, status='classified',"
                  " classified_by=? WHERE id=?",
-                 (category, confidence, reason, draft, "pending" if draft else None, by, rid))
+                 (category, confidence, reason, sentence_case(draft), "pending" if draft else None, by, rid))
     log_event(conn, "reply_classified", "reply", rid, reason, category=category, by=by)

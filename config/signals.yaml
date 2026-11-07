@@ -5,7 +5,7 @@
 # sources       -> raw signal types that map here (Explorium event names from
 #                  developers.explorium.ai/v2/businesses/events, or csv types from csv_signals.yaml)
 # saw / matters -> the "why you, why now" and "why it matters" lines for email 1.
-#                  lowercase sentences, company names keep their caps. {vars} come only
+#                  written lowercase here; casing.sentence_case capitalizes sentence starts on output. {vars} come only
 #                  from stored signal data. if a var is missing the line is NOT used.
 # short         -> under 60 chars, for the LinkedIn note (phase 7)
 #

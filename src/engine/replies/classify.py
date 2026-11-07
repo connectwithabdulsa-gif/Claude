@@ -20,6 +20,7 @@ from ..paths import ROOT
 from ..personalize import qa
 from ..signals.render import clean_company
 from .ingest import new_text, pause_sequence
+from ..casing import sentence_case
 
 ANSWER_SCHEMA = {
     "type": "object",
@@ -79,8 +80,8 @@ def build_context(conn, reply: dict, cfg: dict) -> dict:
 BRIEF = {
     "how_to_answer": [
         "pick exactly one category from `categories`. give a confidence from 0 to 1 and a one line reason.",
-        "write `draft` from the matching script in `reply_scripts` (message-library.md section 6). lowercase "
-        "sentences, no em dashes, no exclamation marks, at most one question. only use the lead's facts, the "
+        "write `draft` from the matching script in `reply_scripts` (message-library.md section 6). normal "
+        "sentence case, no em dashes, no exclamation marks, at most one question. only use the lead's facts, the "
         "booking link, the price line and the proof line from `facts`. no other numbers, names or claims.",
         "not_interested, out_of_office and auto_bounce need no draft: use an empty string.",
         "wrong_person_referral: fill `referral` only with a name and email the reply actually contains.",
@@ -183,7 +184,7 @@ def apply_answer(conn, cfg: dict, reply: dict, ctx: dict, ans: dict, by: str) ->
     status = "needs_abdul" if reasons else "classified"
     conn.execute("""UPDATE replies SET category=?, confidence=?, reason=?, draft=?, draft_status=?, status=?,
                     check_reasons=?, classified_by=?, referral_json=? WHERE id=?""",
-                 (cat or None, conf, ans.get("reason"), draft or None,
+                 (cat or None, conf, ans.get("reason"), sentence_case(draft) or None,
                   ("pending" if draft else None) if status == "classified" else ("held" if draft else None),
                   status, json.dumps(reasons), by, json.dumps(referral) if referral else None, reply["id"]))
     log_event(conn, "reply_classified", "reply", reply["id"], "; ".join(reasons) or ans.get("reason"),

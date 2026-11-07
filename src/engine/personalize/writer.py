@@ -11,6 +11,7 @@ from ..db import log_event, now
 from ..score.scorer import _company_view
 from ..signals.render import clean_company, template_vars
 from . import prompts, qa
+from ..casing import sentence_case
 
 KEY_VARS = ("role_title", "round", "place", "product", "partner", "tool", "show")
 
@@ -143,13 +144,13 @@ def write_one(conn, llm, cfg, lead: dict, today: datetime, spend: Spend, sys_w: 
         reasons += [f"{'signal' if use_signal else 'fallback'} try: {f}" for f in fails]
     status = "ready" if ok else "held"
     body = (email or {}).get("body", "")
-    full = f"{body}\n\n{footer(cfg['sender'])}" if body else ""
+    full = sentence_case(f"{body}\n\n{footer(cfg['sender'])}") if body else ""
     conn.execute(
         """INSERT INTO messages (lead_id, step, variant, subject, body, signal_ids, qa_verdict, qa_reasons, created_at,
              status, model, input_tokens, output_tokens, cost_usd, uses_fallback, facts_json, signal_class, attempts,
              review, writer_mode)
            VALUES (?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (lead["id"], variant, (email or {}).get("subject", ""), full,
+        (lead["id"], variant, sentence_case((email or {}).get("subject", "")), full,
          json.dumps([ctx["signal"]["signal_id"]] if has_signal and not used_fallback else []),
          "pass" if status == "ready" else "fail", json.dumps(reasons), now(), status,
          cfg["llm"]["writer"]["model"], None, None, round(cost, 6), int(used_fallback),

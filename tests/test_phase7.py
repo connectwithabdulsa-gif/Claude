@@ -53,7 +53,7 @@ def test_linkedin_followup_after_accept_and_suppression(conn, tmp_path):
     assert daily.mark(conn, 1, "accepted") == 1
     out2 = daily.build(conn, SEND, CFG["niches"], CFG["rules"], date(2026, 11, 11))
     assert [x["lead_id"] for x in out2["followup"]] == [1]
-    assert out2["followup"][0]["note"].startswith("thanks for connecting P0")
+    assert out2["followup"][0]["note"].startswith("Thanks for connecting P0")
 
 
 def test_reports_and_ab_gate(conn, tmp_path):

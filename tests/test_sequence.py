@@ -109,7 +109,7 @@ def test_full_sequence_days_gaps_threads(conn, tmp_path):
     assert subjects[0] == subjects[1] == subjects[2] and subjects[3] == "Co0 pipeline"
     assert conn.execute("SELECT status FROM sequence_state").fetchone()[0] == "completed"
     bodies = [conn.execute("SELECT body FROM messages WHERE id=?", (s["message_id"],)).fetchone()[0] for s in sends[1:]]
-    assert all("not for you? just say so and i'll stop." in b for b in bodies)
+    assert all("Not for you? Just say so and I'll stop." in b for b in bodies)
 
 
 def test_weekend_followup_slides_and_keeps_min_gap(conn, tmp_path):

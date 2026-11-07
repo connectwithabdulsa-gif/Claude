@@ -96,16 +96,16 @@ Default call to action in email 1 is the free one page map (Offer 0). Offers mar
 The goal is a message that reads like a founder typing it in two minutes.
 
 - Voice reference, from Abdul's real messages: "hey jake, great to connect. yeah, absolutely." Casual, short, direct.
-- Lowercase sentences. Capitalize first names, company names and proper nouns. First name only.
+- Normal sentence case (Abdul, Nov 2026: "dont send small letters messages"). Capital at the start of each sentence, "I", first names, company names and proper nouns. Never all lowercase. First name only.
 - Plain words. Say what we do the simplest way: "i set up the system that finds the right people, writes to them and sends it, so you only take the calls."
 - No em dashes. No emojis. No exclamation marks. No dramatic colons.
 - No stacks of three adjectives or three benefits. No "not just X but Y". No rhetorical question openers. No perfectly balanced paragraphs.
 - Vary the sentence length. A fragment is fine. Do not make every email follow identical wording. Rotate 3 to 5 variants per signal so thousands of sends do not look alike.
 - **Banned words and phrases:** hope this finds you well, i wanted to reach out, reaching out, i came across, i noticed that, touch base, circle back, quick question (as a subject), delve, leverage, unlock, elevate, seamless, robust, streamline, game changer, cutting edge, innovative, tailored, solutions, synergy, revolutionize, supercharge, empower, scale (as a verb), passionate, excited to, best in class, turnkey, AI powered, "just checking in", "just bumping this".
-- Subject lines: plain and specific, 2 to 6 words, lowercase, under 50 characters. No tricks, no fake "re:" or "fwd:", no all caps.
+- Subject lines: plain and specific, 2 to 6 words, sentence case, under 50 characters. No tricks, no fake "re:" or "fwd:", no all caps.
 - Email 1 is 50 to 90 words, plain text, no links, no images, no attachments, one ask.
-- Description of Abdul: GTM Engineer who builds automation systems. Focus on Clay workflows, outbound automation, data pipelines. Company name is exactly "DFY GTM Systems" (lowercase "dfy gtm systems" in sign offs is fine).
-- Every email footer: a plain opt out line ("not for you? just say so and i'll stop.") and the physical mailing address (placeholder `[ADD PHYSICAL ADDRESS]` until Abdul provides it. No live sending until it is filled).
+- Description of Abdul: GTM Engineer who builds automation systems. Focus on Clay workflows, outbound automation, data pipelines. Company name is exactly "DFY GTM Systems" (sign off: "Abdul" then "DFY GTM Systems").
+- Every email footer: a plain opt out line ("Not for you? Just say so and I'll stop.") and the physical mailing address (placeholder `[ADD PHYSICAL ADDRESS]` until Abdul provides it. No live sending until it is filled).
 
 **Pre send QA check for every message** (a second Claude pass, with a reason for each fail):
 1. Would a person read this in 10 seconds and know why they got it?
