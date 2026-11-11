@@ -64,7 +64,7 @@ useful for reference if we ever license it properly.
 so volume was never the blocker. 2000 rows needs roughly 100 to 150 calls. the terms are
 the blocker.
 
-## alternatives, not yet verified
+## alternatives, first pass (google now checked, see above)
 
 none of the below has been checked against its own terms yet. do that before building.
 
@@ -82,3 +82,62 @@ none of the below has been checked against its own terms yet. do that before bui
 
 our existing explorium pipeline cannot do this job at all: its filter schema has no rating
 field and no review count field. it is a b2b company database, not a local listings one.
+
+## answer on google places: also no. same outcome, blunter wording.
+
+checked the live google maps platform terms at cloud.google.com/maps-platform/terms.
+section 3.2.3 (a), titled "No Scraping":
+
+> "Customer will not export, extract, or otherwise scrape Google Maps Content for use
+> outside the Services. For example, Customer will not: (i) pre-fetch, index, store,
+> reshare, or rehost Google Maps Content outside the services; (ii) bulk download google
+> maps tiles, street view images, geocodes, directions, distance matrix results, roads
+> information, places information, elevation values, and time zone details; (iii) copy and
+> save business names, addresses, or user reviews; or (iv) use Google Maps Content with
+> text-to-speech services."
+
+clause (iii) describes the deliverable exactly: copying and saving business names,
+addresses and review data. clause (i) blocks storing it outside their services. so an
+exported lead csv is out, even though google does return the business website that yelp
+withholds.
+
+paying for the api does not buy this right. the restriction sits in the platform terms that
+apply to every paid customer, and there is no stored-list tier.
+
+## openstreetmap: licence is fine, data does not fit, and it is unreachable from here
+
+osm is odbl licensed, so commercial lead gen is permitted with attribution. it carries
+roofers, plumbers, hvac contractors and chiropractors with phone and website tags. but it
+has no star rating and no review count at all, so it cannot satisfy the 4.0+ / 30+ filter
+that defines this icp. separately, overpass-api.de resolves but resets the tls connection
+from this container, which public overpass instances commonly do for cloud egress ranges.
+
+## the conclusion across all three
+
+the 4.0+ stars and 30+ reviews filter is the whole problem. ratings and review counts only
+exist on the review platforms, and both review platforms contractually forbid extracting
+them into a stored list. the open dataset that permits extraction has no ratings. there is
+no configuration of free or self-serve apis that produces this asset legitimately.
+
+so the filter has to be bought from someone who already holds the licence to resell it.
+
+## what to actually do
+
+ranked by how clean the licence is.
+
+1. **licensed us local business data providers.** data axle, melissa, versium. they sell
+   local business records explicitly for marketing use, which is the point: lead gen is a
+   permitted use under the contract rather than a breach of it. confirm in writing that
+   rating and review count are included fields before paying, because coverage varies and
+   several of these compile firmographics without review data.
+2. **review-data resellers.** some vendors licence google review data for resale. ask
+   directly whether their contract permits storing it and contacting the listed business.
+   get it in the order form, not a sales call.
+3. **paid scraper platforms.** apify, outscraper, serpapi. widely used by agencies and they
+   will hand over yelp urls and review counts. understand what this is: it moves the
+   liability to their terms and their relationship with the platforms, it does not make the
+   underlying extraction permitted. abdul's call, not a default.
+
+whichever is chosen, it drops into the existing `DataSource` adapter in
+`src/engine/ingest/base.py` the same way the explorium source does, so the scoring,
+dedupe, suppression and sequencing all work unchanged.
