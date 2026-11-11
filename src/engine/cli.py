@@ -11,6 +11,8 @@ from .ingest import finder
 from .ingest.clay_csv import ClayCsvSource, load_column_map
 from .ingest.explorium import BudgetExceeded, CreditBudget, ExploriumClient, HttpTransport
 from .ingest.importer import run_import
+from .ingest import local_leads
+from .ingest.outscraper_yelp import OutscraperError, load_config as load_local_config
 from .paths import CONFIG_DIR, db_path
 from .score.scorer import Config as ScoreConfig, score_all
 from .signals import engine as sig_engine
@@ -164,6 +166,104 @@ def find(
                + (f"  ({r.unknown_cost_calls} call(s) did not report cost, counted at reserve)"
                   if r.unknown_cost_calls else ""))
 
+
+
+@app.command("find-local")
+def find_local(
+    niche: str = typer.Option(None, "--niche", help="one niche key from config/local_listings.yaml, else all five"),
+    live: bool = typer.Option(False, "--live", help="actually query Outscraper and spend money"),
+    max_metros: int = typer.Option(None, help="cap metros per niche. lowers cost, narrows coverage"),
+    out: Path = typer.Option(None, help="csv destination. default data/local-leads-<date>.csv"),
+    list_: bool = typer.Option(False, "--list", help="list configured niches"),
+):
+    """local business leads from Yelp listings via Outscraper, filtered to the icp.
+
+    dry run prints the query plan and a cost estimate and spends nothing.
+    Yelp and Google both forbid storing this data themselves; see
+    docs/local-business-sourcing.md.
+    """
+    cfg = load_local_config(CONFIG_DIR / "local_listings.yaml")
+    if list_:
+        for key, spec in cfg["niches"].items():
+            typer.echo(f"{key:<16} {spec['label']:<34} yelp term: {spec['find_desc']}")
+        return
+
+    niches = [niche] if niche else None
+    f = cfg["filters"]
+    planned = len(local_leads.plan(cfg, niches=niches, max_metros=max_metros))
+    est = local_leads.estimate(cfg, planned, niches=len(niches) if niches else None)
+
+    if not live:
+        typer.echo("DRY RUN  find-local")
+        typer.echo(f"  niches         {niches or list(cfg['niches'])}")
+        typer.echo(f"  metros         {max_metros or len(cfg['metros'])} per niche")
+        typer.echo(f"  icp filter     rating >= {f['min_rating']}, reviews >= {f['min_reviews']}, "
+                   f"{f['country']} only, phone required: {f['require_phone']}")
+        typer.echo(f"  target         {est['target_rows']} rows "
+                   f"({cfg['target']['per_niche']} per niche, stops as soon as each is met)")
+        typer.echo(f"  likely run     {est['likely_queries']} queries, up to {est['likely_records']} records"
+                   f"  (assumes {est['assumed_qualify_rate']:.0%} clear the filter)")
+        typer.echo(f"  worst case     {est['ceiling_queries']} queries, up to {est['ceiling_records']} records")
+        if est["rate_per_1000_usd"] is None:
+            typer.echo("  cost           unknown. put your Outscraper rate in "
+                       "config/local_listings.yaml pricing.price_per_1000_records_usd")
+        else:
+            typer.echo(f"  cost           about ${est['likely_cost_usd']} likely, "
+                       f"${est['ceiling_cost_usd']} worst case "
+                       f"(at ${est['rate_per_1000_usd']} per 1000)")
+        typer.echo("  note           views is not available from any Yelp source. not collected.")
+        typer.echo("nothing was queried or spent.")
+        return
+
+    key = os.environ.get(cfg["api"]["key_env"])
+    if not key:
+        raise typer.BadParameter(f"{cfg['api']['key_env']} missing in .env")
+
+    conn = _conn()
+    try:
+        res = local_leads.collect(cfg, api_key=key, live=True, niches=niches,
+                                  max_metros=max_metros, progress=lambda m: typer.echo(f"  {m}"))
+    except OutscraperError as e:
+        log_event(conn, "find_local_failed", "run", "find-local", str(e))
+        conn.commit()
+        typer.echo(f"STOPPED: {e}")
+        raise typer.Exit(1)
+
+    dest = out or (Path("data") / f"local-leads-{now()[:10]}.csv")
+    suppressed = [r for r in res.rows if _local_suppressed(conn, r)]
+    if suppressed:
+        drop = {id(r) for r in suppressed}
+        res.rows = [r for r in res.rows if id(r) not in drop]
+    local_leads.write_csv(res.rows, dest)
+
+    typer.echo("LIVE find-local")
+    typer.echo(f"  queries sent     {res.queries_sent} in {res.api_calls} api call(s)")
+    typer.echo(f"  records received {res.records_received}")
+    typer.echo(f"  qualified        {res.qualified}")
+    typer.echo(f"  duplicates       {res.duplicates or 'none'}")
+    typer.echo(f"  suppressed       {len(suppressed) or 'none'}")
+    typer.echo(f"  per niche        {res.per_niche}")
+    typer.echo(f"  rejected         {res.rejects.counts or 'none'}")
+    for n, why in res.stopped_early.items():
+        typer.echo(f"  stopped early    {n}: {why}")
+    if res.unmapped:
+        typer.echo(f"  unmapped columns {res.unmapped[:12]}"
+                   f"{' ...' if len(res.unmapped) > 12 else ''}")
+        typer.echo("    ^ check these against FIELD_MAP in outscraper_yelp.py; a renamed "
+                   "field would silently blank a column")
+    typer.echo(f"  csv              {dest}")
+    log_event(conn, "find_local", "run", "find-local",
+              f"{res.qualified} rows from {res.records_received} records")
+    conn.commit()
+
+
+def _local_suppressed(conn, row: dict) -> bool:
+    """respect the suppression list (CLAUDE.md rule 9). these rows carry no email, so
+    the only thing to match on is the website domain."""
+    site = (row.get("website") or "").strip()
+    if not site:
+        return False
+    return suppression.check(conn, "", site) is not None
 
 @app.command()
 def verify(

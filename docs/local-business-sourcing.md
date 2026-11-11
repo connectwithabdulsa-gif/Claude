@@ -141,3 +141,65 @@ ranked by how clean the licence is.
 whichever is chosen, it drops into the existing `DataSource` adapter in
 `src/engine/ingest/base.py` the same way the explorium source does, so the scoring,
 dedupe, suppression and sequencing all work unchanged.
+
+## what was built
+
+`engine find-local`, dry run by default like everything else.
+
+```
+engine find-local --list                      # the five niches
+engine find-local                             # dry run: query plan + cost, spends nothing
+engine find-local --niche roofing --max-metros 10
+engine find-local --live                       # queries outscraper, writes the csv
+```
+
+source: `src/engine/ingest/outscraper_yelp.py` (api client, field mapping, icp gate) and
+`src/engine/ingest/local_leads.py` (batching, target stop, csv). config in
+`config/local_listings.yaml`. tests in `tests/test_local_leads.py`.
+
+the api contract was taken from the official outscraper python sdk 6.0.5 on pypi, not
+guessed: `outscraper/client.py` `yelp_search` and `outscraper/transport.py` give the
+endpoint, the header, every parameter and the async polling flow. we do not depend on the
+sdk because the published 6.0.5 wheel ships `outscraper/businesses.py`, which imports an
+`outscraper.schema.businesses` package that is not in the wheel or the sdist, so importing
+it raises ImportError. the client here is about 60 lines against the one endpoint we need.
+
+shape of a full run, from the dry run:
+
+| | queries | records |
+|---|---|---|
+| likely, stopping at 400 per niche | 80 | 4000 |
+| ceiling, all 151 metros x 5 niches | 755 | 37750 |
+
+the ceiling is never reached in practice because each niche stops the moment it has its
+400 rows. the likely figure assumes half of yelp listings clear 4.0 stars and 30 reviews,
+which is a configured guess (`pricing.assumed_qualify_rate`) that the first live run
+replaces with the measured number.
+
+columns delivered: business_name, niche, category, rating, reviews, phone, website,
+yelp_url, street, city, state, zip_code, country, latitude, longitude, search_metro,
+source. **views is not delivered**, because it does not exist in any yelp source.
+
+### one thing to confirm on the first live run
+
+the exact response key names for outscraper's yelp-search records are not documented
+publicly and could not be verified without a key. so `FIELD_MAP` in
+`outscraper_yelp.py` maps every canonical column from a list of candidate keys, best
+first, and the live run prints any response key it did not recognise:
+
+```
+unmapped columns ['brand_new_key', ...]
+    ^ check these against FIELD_MAP in outscraper_yelp.py
+```
+
+if a column in the csv comes out blank, that warning is where to look. run
+`--niche roofing --max-metros 2 --live` first, for a few dollars, and read that line
+before the full 2000.
+
+### before a live run
+
+1. put the outscraper key in `.env` as `OUTSCRAPER_API_KEY`.
+2. put the real rate in `config/local_listings.yaml` under
+   `pricing.price_per_1000_records_usd`, so the dry run can price the job. it is null on
+   purpose: rule 8 says estimate the cost first, and a guessed rate is not an estimate.
+3. run the dry run, read the numbers, then approve.
