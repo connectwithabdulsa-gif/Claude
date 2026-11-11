@@ -48,6 +48,34 @@ def timeframe(observed_at: str | None, today: datetime) -> str | None:
     return "this month" if (seen.year, seen.month) == (today.year, today.month) else "recently"
 
 
+def _rating(value) -> str | None:
+    """4.5 -> "4.5", 5.0 -> "5". never invent a rating we do not have."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not 0 < f <= 5:
+        return None
+    return str(int(f)) if f == int(f) else f"{f:.1f}"
+
+
+def _count(value) -> str | None:
+    try:
+        n = int(float(str(value).replace(",", "")))
+    except (TypeError, ValueError):
+        return None
+    return f"{n:,}" if n > 0 else None
+
+
+def _place(city, state) -> str | None:
+    """"Dallas, TX". a wrong city is worse than no city, so both parts must be real."""
+    city = (city or "").strip()
+    state = (state or "").strip()
+    if not city:
+        return None
+    return f"{city}, {state}" if state else city
+
+
 def template_vars(signal: dict, company: dict, lead: dict, today: datetime) -> dict:
     d = signal.get("data")
     if d is None:
@@ -77,6 +105,18 @@ def template_vars(signal: dict, company: dict, lead: dict, today: datetime) -> d
         v["tool"] = d["tool"]
     if d.get("show"):
         v["show"] = d["show"]
+
+    # local service business signals. rating and review_count are only useful together,
+    # and fill() already drops a template whose vars are not all present, so a listing
+    # with a rating but no review count never renders the reputation line.
+    if d.get("rating") is not None:
+        v["rating"] = _rating(d["rating"])
+    if d.get("review_count") is not None:
+        v["review_count"] = _count(d["review_count"])
+    if d.get("location_count"):
+        v["location_count"] = _count(d["location_count"])
+    if not v.get("place"):
+        v["place"] = _place(d.get("city"), d.get("state"))
     return {k: val for k, val in v.items() if val}
 
 

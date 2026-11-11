@@ -46,7 +46,9 @@ def test_helpers():
 
 def test_every_catalog_template_only_uses_known_vars(cfg):
     known = {"company", "role_title", "a_role_title", "round", "a_round", "place", "product", "partner", "tool", "show",
-             "timeframe", "first_name"}
+             "timeframe", "first_name",
+             # local service business signals
+             "rating", "review_count", "location_count"}
     import string
     for key, spec in cfg.signal_classes.items():
         for f in ("saw", "saw_you", "matters", "short"):
@@ -140,3 +142,56 @@ def test_pick_all_stores_lines_and_fallback(conn, cfg):
     # rerun replaces, does not duplicate
     se.pick_all(conn, cfg, TODAY)
     assert conn.execute("SELECT COUNT(*) FROM signal_picks").fetchone()[0] == 1
+
+
+# --- local service business signal vars ---
+
+def _vars(data: dict):
+    from datetime import datetime, timezone
+    from engine.signals.render import template_vars
+    return template_vars({"data": data}, {"name": "Ace Roofing"}, {"first_name": "Jake"},
+                         datetime(2026, 11, 11, tzinfo=timezone.utc))
+
+
+def test_rating_and_review_count_render():
+    v = _vars({"rating": 4.5, "review_count": 212, "city": "Dallas", "state": "TX"})
+    assert v["rating"] == "4.5"
+    assert v["review_count"] == "212"
+    assert v["place"] == "Dallas, TX"
+
+
+def test_whole_rating_drops_the_decimal():
+    assert _vars({"rating": 5.0})["rating"] == "5"
+    assert _vars({"rating": 4.0})["rating"] == "4"
+
+
+def test_bad_rating_is_dropped_not_guessed():
+    for bad in (None, "", "n/a", 0, 6, -1):
+        assert "rating" not in _vars({"rating": bad})
+
+
+def test_review_count_handles_thousands_and_text():
+    assert _vars({"review_count": "1,300"})["review_count"] == "1,300"
+    assert _vars({"review_count": 4321})["review_count"] == "4,321"
+    assert "review_count" not in _vars({"review_count": "lots"})
+    assert "review_count" not in _vars({"review_count": 0})
+
+
+def test_place_needs_a_real_city():
+    assert "place" not in _vars({"state": "TX"})       # state alone is not a place
+    assert _vars({"city": "Austin"})["place"] == "Austin"
+
+
+def test_reputation_line_is_dropped_when_review_count_is_missing(cfg):
+    """rule 5: a rating with no review count must not produce a half filled line."""
+    from engine.signals.render import fill
+    tpl = cfg.signal_classes["local_reputation"]["saw"]
+    assert fill(tpl, _vars({"rating": 4.5, "city": "Dallas", "state": "TX"})) is None
+    full = fill(tpl, _vars({"rating": 4.5, "review_count": 212, "city": "Dallas", "state": "TX"}))
+    assert full == "saw Ace Roofing is at 4.5 stars across 212 reviews in Dallas, TX."
+
+
+def test_commercial_signal_needs_only_company(cfg):
+    from engine.signals.render import fill
+    spec = cfg.signal_classes["local_commercial_shift"]
+    assert fill(spec["saw"], _vars({})) == "saw Ace Roofing does commercial work as well as residential."

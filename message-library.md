@@ -265,3 +265,147 @@ i build outbound systems in clay for {{niche_plural}}. i can send a one page map
 3. Length: 50 words vs 80 words.
 4. Subject: two plain options per signal.
 5. Email 3: with proof sentence vs without.
+
+## 9. Local service businesses (roofing, plumbing, hvac, chiropractors, medspas)
+
+Stored lowercase like the rest of this file. `casing.sentence_case` capitalizes on output.
+
+### Read this before writing a single email to these niches
+
+Our offer is b2b outbound: we find companies and write to a decision maker there. That fits
+a local service business only where the business itself sells to other businesses. It
+splits hard:
+
+- **roofing, plumbing, hvac: strong fit.** their commercial side is real b2b. the buyers are
+  property managers, hoa boards, facilities managers, general contractors, builders,
+  insurance adjusters and realtors. that work is won by making contact first, and almost none of
+  them do it in any organized way. this is a genuinely good market for us.
+- **chiropractors and medspas: weak fit, and we should say so.** their customers are
+  consumers. b2b outbound does not reach consumers, and we do not do consumer marketing.
+  the only honest b2b angle is partnership outreach: corporate wellness contracts for
+  chiropractors, and referral partnerships for medspas (gyms, salons, dermatology, med
+  practices, wedding venues). that is a narrower, smaller offer than the $2,000 engagement.
+
+So do not send the standard pitch to a medspa. Either use the partnership angle below, or
+leave the niche out. Rule 11 of CLAUDE.md says we send fewer rather than fill a quota.
+
+### Email 1, commercial work signal (best variant for roofing, plumbing, hvac)
+Subject options: `{{company}} commercial work`, `commercial side at {{company}}`, `{{place}} property managers`
+
+Variant A
+```
+hey {{first_name}},
+
+saw {{company}} does commercial alongside the residential work.
+
+residential comes to you from search and reviews. commercial does not. property managers and hoa boards pick whoever contacted them last.
+
+i'm abdul. i build the system that finds those buyers in your area, checks the contact details and writes to each one, so you just take the calls.
+
+want a one page map of how that would run for {{company}}?
+```
+Variant B
+```
+{{first_name}}, quick one about the commercial side of {{company}}.
+
+the homeowner work finds you. facilities managers and builders do not, they go with whoever got in front of them.
+
+i set up outbound systems that find those accounts around {{place}}, verify who to contact and write each message. no one has to babysit it.
+
+worth fifteen minutes?
+```
+
+### Email 1, reputation signal (only when rating AND review_count are both stored)
+Subject options: `{{company}} reviews`, `{{place}} commercial work`
+
+Variant A
+```
+hey {{first_name}},
+
+{{rating}} stars across {{review_count}} reviews in {{place}} is hard to argue with.
+
+that reputation works on anyone already searching. it does nothing to reach the property managers and gcs who never search, they just use whoever called them.
+
+i'm abdul. i build the outbound system that reaches those accounts for you. finding, checking and writing all run on their own.
+
+want me to map it out for {{company}} on one page?
+```
+
+### Email 1, hiring crew signal
+Subject options: `hiring at {{company}}`, `{{company}} crew`
+
+Variant A
+```
+hey {{first_name}},
+
+saw {{company}} is hiring {{role_title}}.
+
+more crew only pays off if the work is already booked. that usually means commercial accounts, and those have to be gone after.
+
+i build the system that finds property managers and builders in your area, checks the details and writes to them. replies come to you.
+
+want the one page version for {{company}}?
+```
+
+### Email 1, partnership angle (the ONLY approved angle for chiropractors and medspas)
+Subject options: `{{company}} referrals`, `corporate work at {{company}}`
+
+Chiropractors, corporate wellness
+```
+hey {{first_name}},
+
+most of {{company}}'s patients find you themselves. corporate wellness is the part that does not work that way.
+
+hr managers at local employers book these, and they go with whoever asked. nobody is asking.
+
+i'm abdul. i build the system that finds those employers near {{place}}, checks who handles benefits and writes to them.
+
+want me to show you what that list looks like for {{place}}?
+```
+
+Medspas, referral partners
+```
+hey {{first_name}},
+
+saw {{company}} is well reviewed in {{place}}.
+
+the steadiest growth i see for a medspa is referral partners, not ads. gyms, salons, dermatology and wedding venues all send clients if someone actually asks them.
+
+i build the system that finds those businesses near you, checks the owner's details and writes to each one.
+
+worth a look at who that would be around {{place}}?
+```
+
+### Niche lines (add to section 3)
+
+- **roofing:** "storm and referral work is unpredictable. commercial accounts are steady, and they get won by whoever reaches out first."
+- **plumbing:** "service calls come and go. property management and facilities contracts are recurring, and nobody is chasing them properly."
+- **hvac:** "summer carries you, then it stops. commercial maintenance contracts fill the gap and they are sold outbound."
+- **chiropractors:** "patients find you on their own. corporate wellness contracts do not work like that, someone has to ask hr." (Partnership offer only.)
+- **medspas:** "ads get more expensive every year. referral partners cost nothing per lead and they compound." (Partnership offer only.)
+
+### Follow ups for these niches
+
+**Email 2, day 3, same thread.**
+```
+{{first_name}}, here's what it would actually look like for {{company}}.
+
+i'd pull every property manager, hoa and general contractor within range of {{place}}, find who handles maintenance, check the details so nothing bounces, and write each one from something real about their buildings. sends from a separate domain so yours stays clean.
+
+want the map?
+```
+
+**Email 3, day 7, same thread.**
+```
+{{first_name}}, the part most contractors do not like hearing: the commercial accounts you want are already working with someone who called them.
+
+that is the whole opening. fifteen minutes and i'll show you the list for {{place}}.
+```
+
+### What NOT to say to these niches
+
+- Never offer to get them more homeowners or patients. That is consumer marketing and we do not do it.
+- Never mention their star rating without both the rating and the review count in a stored field, with a date.
+- Never imply their reviews are a problem. The reputation line is a compliment that pivots to commercial, not a criticism.
+- Never promise a volume of jobs, calls or leads. Section 2 of CLAUDE.md: no numbers Abdul has not confirmed.
+- Do not use "{{place}}" unless the city is in a stored field. A wrong city is worse than no city.

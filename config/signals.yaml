@@ -105,3 +105,44 @@ classes:
     saw: null
     matters: null
     short: null
+
+  # --- local service business signals (roofing, plumbing, hvac, chiropractors, medspas) ---
+  # these map to fields the local sources actually return: rating and review_count from
+  # the yelp source, headcount and description text from clay. see
+  # docs/local-business-sourcing.md for which source provides what.
+
+  local_reputation:
+    strength: medium
+    window_days: null          # current state, not an event. no expiry
+    sources: [yelp_rating_reviews, clay_description_reviews]
+    # only used when BOTH rating and review_count are stored. never guess either.
+    saw: "saw {company} is at {rating} stars across {review_count} reviews in {place}."
+    matters: "that only reaches people already searching for you. it does nothing for the commercial work."
+    short: "{company} at {rating} stars in {place}"
+
+  local_crew_hiring:
+    strength: high
+    window_days: 30
+    sources: [hiring_in_trade_department, hiring_in_operations_department, clay_jobs_field_staff]
+    saw: "saw {company} is hiring {a_role_title}."
+    matters: "more crew only pays off if there is work booked for them."
+    short: "{company} is hiring {a_role_title}"
+
+  local_multi_location:
+    strength: medium
+    window_days: null
+    sources: [clay_locations_count, yelp_multi_location]
+    saw: "saw {company} runs {location_count} locations around {place}."
+    matters: "a second location needs its own pipeline and referrals rarely travel."
+    short: "{company} across {location_count} locations"
+
+  local_commercial_shift:
+    strength: medium_high
+    window_days: 60
+    sources: [clay_description_commercial, new_product]
+    # fires when the description or site shows a commercial or contract service line.
+    # this is the strongest local signal for us: commercial work is the part that is
+    # actually sold outbound, b2b, to property managers, hoas, facilities and builders.
+    saw: "saw {company} does commercial work as well as residential."
+    matters: "commercial accounts get won by whoever makes contact first, not by being found."
+    short: "{company} commercial work"
