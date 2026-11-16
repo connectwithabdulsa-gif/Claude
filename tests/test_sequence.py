@@ -188,7 +188,7 @@ def test_main_domain_mailbox_refused(tmp_path, monkeypatch):
     from typer.testing import CliRunner
     from engine.cli import app
     monkeypatch.setenv("ENGINE_DB", str(tmp_path / "t.db"))
-    r = CliRunner().invoke(app, ["mailboxes", "add", "abdul@dfygtmsystems.com", "--warmup-start", "2026-10-01"])
+    r = CliRunner().invoke(app, ["mailboxes", "add", "sami@dfygtmsystems.com", "--warmup-start", "2026-10-01"])
     assert r.exit_code != 0 and "secondary" in r.output
     ok = CliRunner().invoke(app, ["mailboxes", "add", "abdul@getdfy.test", "--warmup-start", "2026-10-01"])
     assert ok.exit_code == 0, ok.output

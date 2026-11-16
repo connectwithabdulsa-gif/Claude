@@ -73,10 +73,16 @@ def global_gates(cfg: dict) -> list[str]:
     return out
 
 
+def is_override(sender_cfg: dict, address: str) -> bool:
+    """abdul's own decision to send from one main-domain address in safe mode (config/sender.yaml)."""
+    o = sender_cfg.get("main_domain_override") or {}
+    return bool(o.get("address")) and o["address"].lower() == address.lower()
+
+
 def mailbox_gate(conn, cfg: dict, mb: dict, at: datetime) -> str | None:
     dom = norm_domain(mb["address"])
     main = set(cfg["sender"].get("main_domains") or []) | {"gmail.com", "googlemail.com"}
-    if dom in main:
+    if dom in main and not is_override(cfg["sender"], mb["address"]):
         return "main domain, cold email never goes out from here (rule 2)"
     if mb["paused"]:
         return f"paused: {mb['pause_reason']}"

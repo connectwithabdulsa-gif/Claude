@@ -428,8 +428,14 @@ def mailbox_add(
     from .normalize import norm_domain
     conn = _conn()
     dom = norm_domain(address)
-    blocked = set((_y.safe_load((CONFIG_DIR / "sender.yaml").read_text()) or {}).get("main_domains") or [])
-    if dom in blocked or dom in ("gmail.com", "googlemail.com"):
+    from .send.runner import is_override
+    sender_cfg = _y.safe_load((CONFIG_DIR / "sender.yaml").read_text()) or {}
+    blocked = set(sender_cfg.get("main_domains") or [])
+    override = is_override(sender_cfg, address)
+    if override:
+        daily_cap = min(daily_cap, int(sender_cfg["main_domain_override"].get("max_per_day", 10)))
+        typer.echo(f"main domain override (abdul's call): safe mode, max {daily_cap} a day")
+    elif dom in blocked or dom in ("gmail.com", "googlemail.com"):
         raise typer.BadParameter(f"{dom} is a main domain or personal gmail. cold email only from secondary domains")
     conn.execute("INSERT OR IGNORE INTO domains (domain) VALUES (?)", (dom,))
     did = conn.execute("SELECT id FROM domains WHERE domain=?", (dom,)).fetchone()[0]

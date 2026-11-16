@@ -144,7 +144,7 @@ def test_mailbox_gates(conn, cfg, monkeypatch):
     seed(conn)
     mb = dict(conn.execute("SELECT * FROM mailboxes").fetchone())
     assert runner.mailbox_gate(conn, cfg, mb, AT) is None
-    assert "main domain" in runner.mailbox_gate(conn, cfg, {**mb, "address": "abdul@dfygtmsystems.com"}, AT)
+    assert "main domain" in runner.mailbox_gate(conn, cfg, {**mb, "address": "sami@dfygtmsystems.com"}, AT)
     assert "old" in runner.mailbox_gate(conn, cfg, mb, AT + timedelta(hours=30))
     monkeypatch.delenv(sm.env_key(MB))
     assert "no password" in runner.mailbox_gate(conn, cfg, mb, AT)
@@ -286,3 +286,12 @@ def test_password_only_from_env(monkeypatch):
     monkeypatch.setenv("SPACEMAIL_USER", "nobody@x.test")
     monkeypatch.setenv("SPACEMAIL_PASSWORD", "s")
     assert sm.password_for("nobody@x.test") == "s"
+
+
+def test_main_domain_override_only_that_address(conn, cfg):
+    seed(conn)
+    mb = dict(conn.execute("SELECT * FROM mailboxes").fetchone())
+    cfg["sender"]["main_domain_override"] = {"address": "abdul@dfygtmsystems.com", "max_per_day": 10}
+    assert "main domain" in runner.mailbox_gate(conn, cfg, {**mb, "address": "sami@dfygtmsystems.com"}, AT)
+    why = runner.mailbox_gate(conn, cfg, {**mb, "address": "sami@dfygtmsystems.com"}, AT)
+    assert why is None or "main domain" not in why
