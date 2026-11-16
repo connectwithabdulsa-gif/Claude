@@ -12,6 +12,6 @@ main_domain_override:
   max_per_day: 10
 from_name: Abdul                    # display name on outgoing mail
 # alerts (mailbox paused, new human reply, send failures) go here. abdul's own inbox, not cold email.
-alerts_to: ""                       # e.g. your own gmail. empty = alerts only in the log and `engine run` output
+alerts_to: abdul@dfygtmsystems.com
 # `engine mailboxes test` only sends to these (your own addresses), never to a prospect
-own_addresses: []
+own_addresses: [abdul@dfygtmsystems.com]
