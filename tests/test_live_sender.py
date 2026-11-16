@@ -293,5 +293,5 @@ def test_main_domain_override_only_that_address(conn, cfg):
     mb = dict(conn.execute("SELECT * FROM mailboxes").fetchone())
     cfg["sender"]["main_domain_override"] = {"address": "abdul@dfygtmsystems.com", "max_per_day": 10}
     assert "main domain" in runner.mailbox_gate(conn, cfg, {**mb, "address": "sami@dfygtmsystems.com"}, AT)
-    why = runner.mailbox_gate(conn, cfg, {**mb, "address": "sami@dfygtmsystems.com"}, AT)
+    why = runner.mailbox_gate(conn, cfg, {**mb, "address": "abdul@dfygtmsystems.com"}, AT)
     assert why is None or "main domain" not in why
