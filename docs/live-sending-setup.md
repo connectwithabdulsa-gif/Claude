@@ -9,7 +9,30 @@ Our own sender in place of Smartlead or Instantly. It sends from your Spacemail 
 - [SPF](https://www.spaceship.com/knowledgebase/spacemail-dns-setup-namecheap/): `v=spf1 include:spf.spacemail.com ~all`.
 - [Starlight VM](https://www.spaceship.com/knowledgebase/starlight-vm-getting-started/): Spaceship's own Linux VPS, from about $4.90 a month, with Ubuntu 24.04 and a command line in the browser.
 
-## 1. The machine (Spaceship Starlight VM)
+## 1a. On your own computer (Abdul's choice)
+Note: it only sends and reads replies while the computer is on and awake. If it's off, emails that are due wait and go out the next time it's on, inside the prospect's business hours.
+
+**Windows**
+1. Install Python 3.12+ from python.org and tick "Add Python to PATH". Install Git from git-scm.com.
+2. Open PowerShell:
+```powershell
+git clone https://github.com/connectwithabdulsa-gif/claude.git $HOME\engine; cd $HOME\engine
+git checkout claude/abdul-dfy-gtm-offer-5yw80i
+python -m venv .venv; .venv\Scripts\pip install -e .
+copy .env.example .env; notepad .env
+```
+3. Put the passwords in `.env` (step 2 below), then the config, tests and go-live (steps 3 to 5).
+4. Run it every 5 minutes with Task Scheduler (one command in PowerShell):
+```powershell
+schtasks /create /tn "OutboundEngine" /sc minute /mo 5 /tr "cmd /c cd /d %USERPROFILE%\engine && .venv\Scripts\engine.exe deliverability >nul 2>&1 & .venv\Scripts\engine.exe run --live >> data\run.log 2>&1"
+```
+   To stop it: `schtasks /delete /tn "OutboundEngine" /f`, or `engine stop`.
+5. In Windows power settings, set sleep to "Never" while plugged in.
+
+**Mac**
+Same steps as the VM below, in Terminal (`brew install python git` if they're missing). Use the cron line from step 5. Under System Settings > Energy, turn off automatic sleep when the display is off.
+
+## 1b. Or: on a Spaceship Starlight VM (always on)
 Buy the smallest Starlight VM with Ubuntu 24.04. In Starlight Manager, open your VM, then Virtual Machine access, then Launch command line. Run:
 
 ```bash

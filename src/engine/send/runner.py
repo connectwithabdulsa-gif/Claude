@@ -9,8 +9,8 @@ each tick, in order:
   5. health check per mailbox (auto pause), alerts
 nothing here ever replies to a human (CLAUDE.md hard rule 4).
 """
-import fcntl
 import json
+import os
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -250,7 +250,7 @@ def tick(conn, cfg: dict, at: datetime | None = None, rng: random.Random | None 
 
 
 class RunLock:
-    """file lock so two cron ticks never run at once. returns False from acquire() if busy."""
+    """file lock so two ticks never run at once (Linux, Mac and Windows). acquire() is False if busy."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -258,9 +258,15 @@ class RunLock:
 
     def acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.f = self.path.open("w")
+        self.f = self.path.open("a+")
         try:
-            fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if os.name == "nt":
+                import msvcrt
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
         except OSError:
             self.f.close()
@@ -268,8 +274,17 @@ class RunLock:
             return False
 
     def release(self):
-        if self.f:
-            fcntl.flock(self.f, fcntl.LOCK_UN)
+        if not self.f:
+            return
+        try:
+            if os.name == "nt":
+                import msvcrt
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.f, fcntl.LOCK_UN)
+        finally:
             self.f.close()
             self.f = None
 
