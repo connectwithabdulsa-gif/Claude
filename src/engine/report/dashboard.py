@@ -57,7 +57,7 @@ def _status(lead, seq, email1, exported) -> tuple[str, str]:
 
 
 def build_data(conn, sending_cfg: dict, include_dry_run: bool = False) -> dict:
-    live_sends = conn.execute("SELECT COUNT(*) FROM sends WHERE mode='live'").fetchone()[0]
+    live_sends = conn.execute("SELECT COUNT(*) FROM sends WHERE mode='live' AND status='sent'").fetchone()[0]
     if live_sends and not include_dry_run:
         modes, mode_label = ("live",), "live"
     elif live_sends:

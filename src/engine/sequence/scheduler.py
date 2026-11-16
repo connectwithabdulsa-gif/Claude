@@ -75,7 +75,8 @@ def _skip(plan, why):
     plan.skipped[why] = plan.skipped.get(why, 0) + 1
 
 
-def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume_warm: bool = False) -> DayPlan:
+def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume_warm: bool = False,
+                  mailbox_ids: set | None = None) -> DayPlan:
     sc = cfg["sending"]
     plan = DayPlan(day)
     wd = DAYS[day.weekday()]
@@ -86,7 +87,8 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
                      " next_due=CASE WHEN next_due IS NULL OR next_due < ? THEN ? ELSE next_due END WHERE lead_id=?",
                      (now(), d, d, r["lead_id"]))
         log_event(conn, "sequence_resumed", "lead", r["lead_id"], "out of office ended")
-    mbs = [dict(r) for r in conn.execute("SELECT * FROM mailboxes ORDER BY id")]
+    mbs = [dict(r) for r in conn.execute("SELECT * FROM mailboxes ORDER BY id")
+           if mailbox_ids is None or r["id"] in mailbox_ids]      # live: only mailboxes that passed the gates
     remaining = {}
     cursor = {}                                       # mailbox -> last send time (utc)
     for mb in mbs:
@@ -192,10 +194,14 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
         msg_id = f"<{uuid.uuid4().hex}@{mb['address'].split('@')[1]}>"
         out = OutgoingEmail(lead["id"], step, mb["address"], lead["email"], subject, body, t.isoformat())
         out.headers = build_headers(out, in_reply_to, msg_id, sc["headers"]["list_unsubscribe"])
-        provider_id = sender.send(out)
+        if getattr(sender, "defer", False):
+            # live: only queue it here. the runner delivers it at its time slot, after checking again.
+            provider_id, status, sent_at = None, "queued", None
+        else:
+            provider_id, status, sent_at = sender.send(out), "sent", t.isoformat()
         conn.execute("INSERT INTO sends (message_id, mailbox_id, scheduled_at, sent_at, mode, status, provider_id,"
                      " lead_id, step, message_id_header, headers_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                     (m["id"], mb["id"], t.isoformat(), t.isoformat(), sender.mode, "sent", provider_id, lead["id"],
+                     (m["id"], mb["id"], t.isoformat(), sent_at, sender.mode, status, provider_id, lead["id"],
                       step, msg_id, json.dumps(out.headers)))
 
         nxt = step + 1 if step < max(x["step"] for x in sc["sequence"]) else None
@@ -252,7 +258,8 @@ def check_health(conn, cfg: dict, mailbox_id: int) -> list[str]:
     mb = conn.execute("SELECT * FROM mailboxes WHERE id=?", (mailbox_id,)).fetchone()
     if mb["paused"]:
         return []
-    last = conn.execute("SELECT outcome FROM sends WHERE mailbox_id=? ORDER BY id DESC LIMIT ?",
+    last = conn.execute("SELECT outcome FROM sends WHERE mailbox_id=? AND status IN ('sent','failed')"
+                        " ORDER BY id DESC LIMIT ?",
                         (mailbox_id, h["bounce_window"])).fetchall()
     n = len(last)
     bounces = sum(1 for r in last if r["outcome"] == "bounce")

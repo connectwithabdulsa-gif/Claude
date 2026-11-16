@@ -10,7 +10,7 @@ def collect(conn) -> dict:
     one = lambda q, *a: conn.execute(q, a).fetchone()[0] or 0
     # keys as strings so a snapshot (json) and a live collect compare equal
     group = lambda q, *a: {str(r[0]) if r[0] is not None else "none": r[1] for r in conn.execute(q, a)}
-    sends = one("SELECT COUNT(*) FROM sends")
+    sends = one("SELECT COUNT(*) FROM sends WHERE status='sent'")
     bounces = one("SELECT COUNT(*) FROM sends WHERE outcome='bounce'")
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
@@ -27,16 +27,16 @@ def collect(conn) -> dict:
         "open_exports": one("SELECT COUNT(*) FROM email_exports WHERE imported_at IS NULL"),
         "sequences": group("SELECT status, COUNT(*) FROM sequence_state GROUP BY status"),
         "sends": sends,
-        "sends_by_mode": group("SELECT mode, COUNT(*) FROM sends GROUP BY mode"),
-        "sends_by_step": group("SELECT step, COUNT(*) FROM sends GROUP BY step"),
+        "sends_by_mode": group("SELECT mode, COUNT(*) FROM sends WHERE status='sent' GROUP BY mode"),
+        "sends_by_step": group("SELECT step, COUNT(*) FROM sends WHERE status='sent' GROUP BY step"),
         "outcomes": group("SELECT outcome, COUNT(*) FROM sends WHERE outcome IS NOT NULL GROUP BY outcome"),
         "bounce_pct": round(bounces / sends * 100, 2) if sends else 0.0,
         "reply_pct": round(one("SELECT COUNT(*) FROM sends WHERE outcome='reply'") / sends * 100, 2) if sends else 0.0,
         "mailboxes": [dict(r) for r in conn.execute(
-            "SELECT m.address, m.paused, m.pause_reason, (SELECT COUNT(*) FROM sends s WHERE s.mailbox_id=m.id) AS sends"
+            "SELECT m.address, m.paused, m.pause_reason, (SELECT COUNT(*) FROM sends s WHERE s.mailbox_id=m.id AND s.status='sent') AS sends"
             " FROM mailboxes m ORDER BY m.id")],
         "sends_per_day": [dict(r) for r in conn.execute(
-            "SELECT date(sent_at) AS day, COUNT(*) AS n FROM sends GROUP BY day ORDER BY day DESC LIMIT 30")][::-1],
+            "SELECT date(sent_at) AS day, COUNT(*) AS n FROM sends WHERE status='sent' GROUP BY day ORDER BY day DESC LIMIT 30")][::-1],
         "suppression": one("SELECT COUNT(*) FROM suppression"),
         "notes": one("SELECT COUNT(*) FROM notes"),
         "replies_by_category": group("SELECT COALESCE(category, status), COUNT(*) FROM replies GROUP BY 1"),

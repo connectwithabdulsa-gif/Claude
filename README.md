@@ -49,6 +49,13 @@ engine linkedin-daily                     # up to 20 tier A people, profile link
 engine linkedin mark 9 accepted           # sent / accepted / replied / skipped
 engine booked 42                          # record a booked call
 engine report daily                       # or weekly. splits by niche, signal, variant, subject + a/b
+# live sending on Spacemail (phase 8). setup: docs/live-sending-setup.md
+engine mailboxes add you@second-domain.com --aged      # existing work mailbox: ramp starts today
+engine deliverability                     # MX, SPF, DKIM, DMARC, blocklists. must pass to send
+engine mailboxes test you@x.com --to me@gmail.com --live   # one test email to your own inbox
+engine go-live                            # after abdul's ok in chat. creates data/live_ok
+engine run                                # dry view of every gate. --live = one real tick (cron every 5 min)
+engine stop / engine start                # kill switch
 ```
 
 a `SessionEnd` hook in `.claude/settings.json` runs `engine summary` at the end of every Claude Code
@@ -82,6 +89,6 @@ fake domains all end in `.test`, so they can never be real companies.
 | 5 | 4 step sequence, scheduler, caps + ramp, stop rules, auto pause, simulator | done |
 | 6 | replies: match, instant stop/suppress/pause, session sorting + drafts, inbox review | done |
 | 7 | linkedin daily list (manual), daily/weekly reports, a/b readout | done |
-| 8 | real senders (approval needed) | |
+| 8 | Spacemail sender, IMAP replies, runner, DNS checks, live gates | built, not live yet |
 
 `archive/` holds the earlier starter kit. it is superseded and breaks some current rules, so don't copy from it.

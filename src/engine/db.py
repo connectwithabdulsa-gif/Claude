@@ -136,6 +136,15 @@ CREATE TABLE IF NOT EXISTS suppression (
   UNIQUE (type, value)
 );
 
+CREATE TABLE IF NOT EXISTS imap_state (   -- last IMAP UID read per mailbox folder, so nothing is read twice
+  mailbox TEXT NOT NULL,
+  folder TEXT NOT NULL,
+  uidvalidity TEXT,
+  last_uid INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT,
+  PRIMARY KEY (mailbox, folder)
+);
+
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
   ts TEXT NOT NULL,
@@ -266,8 +275,9 @@ MIGRATIONS = {
                 "check_reasons": "TEXT", "classified_by": "TEXT"},
     "sequence_state": {"paused_until": "TEXT"},
     "sends": {"lead_id": "INTEGER", "step": "INTEGER", "message_id_header": "TEXT", "outcome": "TEXT",
-              "outcome_at": "TEXT", "headers_json": "TEXT"},
+              "outcome_at": "TEXT", "headers_json": "TEXT", "attempts": "INTEGER", "error": "TEXT"},
     "mailboxes": {"live_from": "TEXT"},
+    "domains": {"blocklisted": "TEXT", "dns_report": "TEXT"},
     "messages": {"status": "TEXT", "model": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
                  "cost_usd": "REAL", "uses_fallback": "INTEGER", "facts_json": "TEXT", "signal_class": "TEXT",
                  "attempts": "INTEGER", "review": "TEXT", "reviewed_at": "TEXT", "review_note": "TEXT",

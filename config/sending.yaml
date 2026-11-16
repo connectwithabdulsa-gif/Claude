@@ -47,3 +47,13 @@ linkedin:                       # manual only, never automated (CLAUDE.md hard r
 reports:
   ab_min_sends: 300             # CLAUDE.md: 300 sends per variant before judging
   positive_categories: [interested, meeting_request]
+
+live:                           # phase 8, the runner (`engine run --live`, cron every 5 minutes)
+  ok_file: data/live_ok         # abdul creates this (engine go-live) after approving in chat. no file, no send
+  stop_file: data/STOP          # kill switch: `engine stop` creates it, `engine start` removes it
+  lock_file: data/run.lock      # two ticks never overlap
+  smtp_port: 465                # Spacemail: 465 SSL (587 STARTTLS also listed)
+  imap_port: 993
+  max_per_tick_per_mailbox: 1   # with a 5 minute cron this keeps sends spread out
+  max_attempts: 5               # temporary failures are retried next tick, then marked failed
+  dns_max_age_hours: 24         # `engine deliverability` must have passed within this window

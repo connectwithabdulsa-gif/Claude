@@ -418,7 +418,9 @@ def review(
 @mailbox_app.command("add")
 def mailbox_add(
     address: str,
-    warmup_start: str = typer.Option(..., help="YYYY-MM-DD the warmup started"),
+    warmup_start: str = typer.Option(None, help="YYYY-MM-DD the warmup started (new mailboxes)"),
+    aged: bool = typer.Option(False, "--aged", help="an existing work mailbox already in real use: no warmup wait,"
+                              " the ramp starts today (10 a day, +5 a week)"),
     daily_cap: int = typer.Option(30, help="hard ceiling for this mailbox"),
 ):
     """add a sending mailbox. refuses the main domain (CLAUDE.md hard rule 2)."""
@@ -431,10 +433,14 @@ def mailbox_add(
         raise typer.BadParameter(f"{dom} is a main domain or personal gmail. cold email only from secondary domains")
     conn.execute("INSERT OR IGNORE INTO domains (domain) VALUES (?)", (dom,))
     did = conn.execute("SELECT id FROM domains WHERE domain=?", (dom,)).fetchone()[0]
-    conn.execute("INSERT OR IGNORE INTO mailboxes (address, domain_id, warmup_started_at, daily_cap) VALUES (?,?,?,?)",
-                 (address.lower(), did, warmup_start, daily_cap))
+    from datetime import date as _d
+    if not warmup_start and not aged:
+        raise typer.BadParameter("give --warmup-start YYYY-MM-DD for a new mailbox, or --aged for one already in use")
+    live_from = _d.today().isoformat() if aged else None
+    conn.execute("INSERT OR IGNORE INTO mailboxes (address, domain_id, warmup_started_at, daily_cap, live_from)"
+                 " VALUES (?,?,?,?,?)", (address.lower(), did, warmup_start, daily_cap, live_from))
     conn.commit()
-    typer.echo(f"mailbox {address} added, warmup from {warmup_start}")
+    typer.echo(f"mailbox {address} added, " + (f"aged, ramp starts {live_from}" if aged else f"warmup from {warmup_start}"))
 
 
 @mailbox_app.command("list")
@@ -446,9 +452,17 @@ def mailbox_list():
     cfg = sch.load_cfg(CONFIG_DIR)
     for r in conn.execute("SELECT * FROM mailboxes ORDER BY id"):
         cap = sch.mailbox_cap(dict(r), date.today(), cfg["sending"]["ramp"])
-        sent = conn.execute("SELECT COUNT(*) FROM sends WHERE mailbox_id=?", (r["id"],)).fetchone()[0]
+        sent = conn.execute("SELECT COUNT(*) FROM sends WHERE mailbox_id=? AND status='sent'", (r["id"],)).fetchone()[0]
+        today = conn.execute("SELECT COUNT(*) FROM sends WHERE mailbox_id=? AND status='sent' AND date(sent_at)=?",
+                             (r["id"], date.today().isoformat())).fetchone()[0]
+        last = conn.execute("SELECT outcome FROM sends WHERE mailbox_id=? AND status IN ('sent','failed')"
+                            " ORDER BY id DESC LIMIT 200", (r["id"],)).fetchall()
+        bpct = round(sum(1 for x in last if x["outcome"] == "bounce") / len(last) * 100, 1) if last else 0.0
+        replies = sum(1 for x in last if x["outcome"] == "reply")
         state = f"PAUSED: {r['pause_reason']}" if r["paused"] else "ok"
-        typer.echo(f"{r['address']:<32} warmup {str(r['warmup_started_at'])[:10]}  cap today {cap:>2}  sends {sent:>4}  {state}")
+        start = r["live_from"] and f"aged, live {str(r['live_from'])[:10]}" or f"warmup {str(r['warmup_started_at'])[:10]}"
+        typer.echo(f"{r['address']:<32} {start}  today {today:>2}/{cap:<2}  sends {sent:>4}  bounce {bpct}% (last 200)"
+                   f"  replies {replies}  {state}")
 
 
 @mailbox_app.command("unpause")
@@ -459,6 +473,139 @@ def mailbox_unpause(address: str):
     log_event(conn, "mailbox_unpaused", "mailbox", address, "by abdul")
     conn.commit()
     typer.echo(f"unpaused {address}")
+
+
+@mailbox_app.command("test")
+def mailbox_test(
+    address: str,
+    to: str = typer.Option(..., help="one of your own addresses (sender.yaml own_addresses)"),
+    live: bool = typer.Option(False, "--live", help="really send the one test email"),
+):
+    """send ONE test email from a mailbox to your own address, to check login, headers and the spam tab."""
+    import yaml as _y
+    from .paths import load_dotenv
+    from .send import spacemail as sm
+    from .send.base import OutgoingEmail, build_headers
+    load_dotenv()
+    sender = _y.safe_load((CONFIG_DIR / "sender.yaml").read_text()) or {}
+    own = {a.lower() for a in sender.get("own_addresses") or []}
+    if to.lower() not in own:
+        raise typer.BadParameter(f"{to} is not in own_addresses in config/sender.yaml. tests only go to you")
+    body = ("Test from the outbound engine. If this landed in spam, tell Claude.\n\n" + "\n".join(
+        [sender.get("sign_off", ""), sender.get("company_line", ""), sender.get("opt_out_line", "")]))
+    out = OutgoingEmail(0, 0, address.lower(), to, "Engine test", body, "")
+    import uuid as _u
+    out.headers = build_headers(out, None, f"<{_u.uuid4().hex}@{address.split('@')[1]}>", True)
+    msg = sm.build_message(address.lower(), sender.get("from_name") or "", to, out.subject, body, out.headers)
+    if not live:
+        typer.echo("dry run. this is what would go out (add --live to send it):\n")
+        typer.echo(msg.as_string())
+        return
+    with sm.SmtpSession(address.lower(), sm.password_for(address)) as smtp:
+        smtp.send(msg)
+    conn = _conn()
+    log_event(conn, "test_send", "mailbox", address, None, to=to)
+    conn.commit()
+    typer.echo(f"sent one test email {address} -> {to}. check inbox AND spam, then open 'show original' for SPF/DKIM/DMARC.")
+
+
+@app.command()
+def deliverability(domain: str = typer.Option(None, help="one domain (default: every sending mailbox domain)")):
+    """check MX, SPF, DKIM, DMARC and blocklists for sending domains. live sending needs a pass."""
+    from .normalize import norm_domain
+    from .send import dns_check
+    conn = _conn()
+    doms = [domain] if domain else sorted({norm_domain(r["address"]) for r in conn.execute("SELECT address FROM mailboxes")})
+    if not doms:
+        typer.echo("no mailboxes yet. engine mailboxes add you@second-domain.com --aged")
+        raise typer.Exit(1)
+    bad = 0
+    for d in doms:
+        rep = dns_check.check_domain(d)
+        dns_check.save(conn, rep)
+        log_event(conn, "dns_check", "domain", d, "pass" if rep.ok else "blocked")
+        for line in rep.lines():
+            typer.echo(line)
+        bad += 0 if rep.ok else 1
+    conn.commit()
+    raise typer.Exit(1 if bad else 0)
+
+
+@app.command("go-live")
+def go_live(confirm: str = typer.Option(..., prompt="type SEND to allow live sending on this machine")):
+    """create the live_ok file. only after abdul approved live sending in chat."""
+    import yaml as _y
+    from .send.runner import _p
+    if confirm != "SEND":
+        raise typer.BadParameter("not confirmed")
+    lv = _y.safe_load((CONFIG_DIR / "sending.yaml").read_text())["live"]
+    _p(lv["ok_file"]).parent.mkdir(parents=True, exist_ok=True)
+    _p(lv["ok_file"]).write_text(f"approved {__import__('datetime').datetime.now().isoformat()}\n")
+    conn = _conn()
+    log_event(conn, "go_live", None, None, "live_ok created")
+    conn.commit()
+    typer.echo("live sending allowed. engine run --live (or the cron) will now send when every other gate passes.")
+
+
+@app.command()
+def stop():
+    """kill switch: no sending at all until engine start."""
+    import yaml as _y
+    from .send.runner import _p
+    lv = _y.safe_load((CONFIG_DIR / "sending.yaml").read_text())["live"]
+    _p(lv["stop_file"]).parent.mkdir(parents=True, exist_ok=True)
+    _p(lv["stop_file"]).write_text("stopped\n")
+    conn = _conn()
+    log_event(conn, "kill_switch_on", None, None, "engine stop")
+    conn.commit()
+    typer.echo("STOPPED. nothing will be sent. engine start to resume.")
+
+
+@app.command()
+def start():
+    """turn the kill switch off again."""
+    import yaml as _y
+    from .send.runner import _p
+    lv = _y.safe_load((CONFIG_DIR / "sending.yaml").read_text())["live"]
+    _p(lv["stop_file"]).unlink(missing_ok=True)
+    conn = _conn()
+    log_event(conn, "kill_switch_off", None, None, "engine start")
+    conn.commit()
+    typer.echo("kill switch off.")
+
+
+@app.command()
+def run(live: bool = typer.Option(False, "--live", help="really send and read the mailboxes")):
+    """one tick of the live sender (cron every 5 min). without --live it only shows the gates."""
+    from datetime import datetime, timezone
+    from .paths import load_dotenv
+    from .send import runner
+    from .sequence import scheduler as sch
+    load_dotenv()
+    conn = _conn()
+    cfg = sch.load_cfg(CONFIG_DIR)
+    if not live:
+        g = runner.global_gates(cfg)
+        typer.echo("gates: " + ("all clear" if not g else "; ".join(g)))
+        at = datetime.now(timezone.utc)
+        for r in conn.execute("SELECT * FROM mailboxes ORDER BY id"):
+            typer.echo(f"  {r['address']:<32} " + (runner.mailbox_gate(conn, cfg, dict(r), at) or "ready"))
+        q = conn.execute("SELECT COUNT(*) FROM sends WHERE status='queued' AND mode='live'").fetchone()[0]
+        typer.echo(f"queued live sends: {q}. dry view only, add --live to run a real tick.")
+        return
+    lock = runner.RunLock(runner._p(cfg["sending"]["live"]["lock_file"]))
+    if not lock.acquire():
+        typer.echo("another tick is still running, skipped")
+        return
+    try:
+        res = runner.tick(conn, cfg)
+        for line in res.lines():
+            typer.echo(line)
+        if res.alerts:
+            mbs = [dict(r) for r in conn.execute("SELECT * FROM mailboxes WHERE paused=0 ORDER BY id")]
+            runner.send_alert(cfg, res.alerts, mbs)
+    finally:
+        lock.release()
 
 
 @app.command()
