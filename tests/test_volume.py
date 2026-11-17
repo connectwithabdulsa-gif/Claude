@@ -105,3 +105,35 @@ def test_template_writer_end_to_end(conn, tmp_path):
 def test_template_fill_never_guesses():
     assert tw.fill("Hi {first_name}", {"first_name": None}) is None
     assert tw.fill("Hi {first_name}", {"first_name": "Jane"}) == "Hi Jane"
+
+
+def test_prewritten_csv_sends_his_own_four_emails(conn, tmp_path):
+    from engine.ingest.prewritten import PrewrittenCsvSource, add_messages
+    p = tmp_path / "pre.csv"
+    with open(p, "w", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["First Name", "Last Name", "Work Email", "Company Name"] +
+                    [f"Email{i} {k}" for i in range(1, 5) for k in ("Subject", "Body")])
+        wr.writerow(["Ann", "Lee", "ann@acme.test", "Acme"] +
+                    [x for i in range(1, 5) for x in (f"subject {i} for Acme", f"Hey Ann,\n\nbody {i} for Acme.")])
+    src = PrewrittenCsvSource(p)
+    r = run_import(conn, src)
+    assert add_messages(conn, r, src, CFG["sender"])["leads"] == 1
+    m1 = conn.execute("SELECT * FROM messages WHERE step=1").fetchone()
+    assert m1["review"] == "approved" and m1["status"] == "ready" and m1["subject"] == "Subject 1 for Acme"
+    assert "Not for you? Just say so and I'll stop." in m1["body"]
+    assert conn.execute("SELECT COUNT(*) FROM messages WHERE status='prewritten'").fetchone()[0] == 3
+    conn.execute("INSERT INTO domains (domain) VALUES ('s.test')")
+    conn.execute("INSERT INTO mailboxes (address, domain_id, daily_cap, live_from, fixed_cap) VALUES"
+                 " ('me@s.test', 1, 300, '2026-11-01', 300)")
+    conn.execute("UPDATE leads SET country='United States'")
+    conn.commit()
+    sender = SimulatorSender(tmp_path / "o.jsonl")
+    for d in range(0, 15):
+        sch.plan_and_send(conn, CFG, TUE + timedelta(days=d), sender, random.Random(1))
+    bodies = [r[0] for r in conn.execute("SELECT m.body FROM sends s JOIN messages m ON m.id=s.message_id"
+                                         " ORDER BY s.step")]
+    assert len(bodies) == 4 and all(f"Body {i} for Acme" in b for i, b in enumerate(bodies, start=1))
+    subs = [r[0] for r in conn.execute("SELECT m.subject FROM sends s JOIN messages m ON m.id=s.message_id"
+                                       " ORDER BY s.step")]
+    assert subs[1] == subs[0] and subs[3] == "Subject 4 for Acme"          # 2, 3 same thread, 4 new

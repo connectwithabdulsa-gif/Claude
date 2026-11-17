@@ -185,6 +185,14 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
         if kind == "new":
             m = dict(conn.execute("SELECT * FROM messages WHERE id=?", (job["message_id"],)).fetchone())
             subject, body, in_reply_to = m["subject"], m["body"], None
+        elif (pre := conn.execute("SELECT * FROM messages WHERE lead_id=? AND step=? AND status='prewritten'"
+                                  " ORDER BY id LIMIT 1", (lead["id"], step)).fetchone()):
+            # abdul's own follow up from the csv: sent as written (footer already added on import)
+            same = _thread(sc, step) == "same"
+            subject = job["thread_subject"] if same or not pre["subject"] else pre["subject"]
+            body, in_reply_to = pre["body"], (job["first_message_id"] if same else None)
+            conn.execute("UPDATE messages SET status='ready', subject=? WHERE id=?", (subject, pre["id"]))
+            m = {"id": pre["id"]}
         else:
             subj, text = templates.render(step, lead, company, cfg["niches"].get(lead.get("niche") or "", {}))
             fails = qa.check_followup(text, subj, cfg["rules"])

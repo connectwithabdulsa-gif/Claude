@@ -201,7 +201,8 @@ def score_all(conn, cfg: Config, today: datetime | None = None) -> dict:
     today = today or datetime.now(timezone.utc)
     counts = {"A": 0, "B": 0, "C": 0, "dnc": 0}
     ts = now()
-    for lead in [dict(r) for r in conn.execute("SELECT * FROM leads").fetchall()]:
+    # prewritten csv leads (abdul's own copy) are not scored: the pipeline sets their tier from verify
+    for lead in [dict(r) for r in conn.execute("SELECT * FROM leads WHERE COALESCE(source,'') != 'prewritten'")]:
         company = _company_view(conn, lead["company_id"])
         sigs = [dict(r) for r in conn.execute(
             "SELECT * FROM signals WHERE active=1 AND (lead_id=? OR company_id=?)",

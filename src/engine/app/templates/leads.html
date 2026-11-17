@@ -4,7 +4,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="file" name="csv" accept=".csv" required>
   <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap">
-    <select name="source" style="width:auto"><option value="jobs">Job board CSV (hiring companies)</option><option value="clay">Clay export</option></select>
+    <select name="source" style="width:auto"><option value="jobs">Job board CSV (hiring companies)</option><option value="prewritten">Emails already written (Email1 to Email4 columns)</option><option value="clay">Clay export</option></select>
     <label style="margin:0;font-weight:400"><input type="checkbox" name="only_agencies" checked> Agencies only</label>
     <button class="btn">Upload and write emails</button>
   </div>

@@ -206,13 +206,18 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
             up.mkdir(parents=True, exist_ok=True)
             dest = up / f"{datetime.now():%Y%m%d-%H%M%S}-{Path(f.filename).name}"
             f.save(dest)
-            r = import_csv(conn, config_dir, dest, request.form.get("source", "jobs"),
+            source = request.form.get("source", "jobs")
+            with dest.open(encoding="utf-8-sig", errors="replace") as fh:
+                if "email1 body" in fh.readline().lower():      # whole sequence already written: send as is
+                    source = "prewritten"
+            r = import_csv(conn, config_dir, dest, source,
                            request.form.get("only_agencies") == "on")
             b = build_batch(conn, config_dir)
             w = b["written"]
             flash(f"{r['rows']} rows kept, {r['added']} new leads"
                   + (", filtered: " + ", ".join(f"{k} {v}" for k, v in r["filtered"].items()) if r["filtered"] else "")
                   + (", skipped: " + ", ".join(f"{k} {v}" for k, v in r["rejected"].items()) if r["rejected"] else "")
+                  + (f". {r['prewritten']} people with your own 4 emails, approved" if r.get("prewritten") else "")
                   + f". Emails written: {w['ready']} ready{' and approved' if b['auto_approve'] else ''},"
                     f" {w['held']} held for you to check.", "good")
             return redirect(url_for("leads"))

@@ -25,3 +25,7 @@ def test_qa_allows_sentence_case():
     fails = [f for f in qa.check({"subject": "Acme outbound", "body": body, "facts_used": []}, ctx, rules, False)
              if "capitalized" in f]
     assert fails == []
+
+
+def test_abbreviations_are_not_sentence_ends():
+    assert s("Interface, Inc. and they had 11. next") == "Interface, Inc. and they had 11. Next"

@@ -16,6 +16,10 @@ _OURS = [(re.compile(r"\bdfy gtm systems\b", re.I), "DFY GTM Systems"),
          (re.compile(r"(?<![@\w.])abdul(?![@\w])", re.I), "Abdul")]
 
 
+_ABBREV = {"inc.", "ltd.", "co.", "corp.", "llc.", "plc.", "pty.", "e.g.", "i.e.", "etc.", "vs.", "mr.", "mrs.",
+           "ms.", "dr.", "st.", "no.", "approx.", "dept.", "est."}
+
+
 def sentence_case(text: str | None) -> str | None:
     if not text:
         return text
@@ -25,6 +29,12 @@ def sentence_case(text: str | None) -> str | None:
 
     def up(m):
         lead, word = m.group(1), m.group(2)
-        return m.group(0) if _is_link(word) else lead + word[0].upper() + word[1:]
+        if _is_link(word):
+            return m.group(0)
+        if lead.startswith("."):          # "Interface, Inc. and they": an abbreviation, not a sentence end
+            prev = re.search(r"(\S+)$", text[:m.start()])
+            if prev and (prev.group(1) + ".").lower().strip(",") in _ABBREV:
+                return m.group(0)
+        return lead + word[0].upper() + word[1:]
 
     return _START.sub(up, text)

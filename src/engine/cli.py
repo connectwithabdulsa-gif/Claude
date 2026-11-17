@@ -41,13 +41,19 @@ def _conn():
 @app.command("import")
 def import_cmd(
     path: Path = typer.Argument(..., exists=True, dir_okay=False, help="csv export"),
-    source: str = typer.Option("clay", help="clay (Clay export) or jobs (job-board csv, one row per decision maker)"),
+    source: str = typer.Option("clay", help="clay, jobs (job-board csv) or prewritten (Email1..Email4 columns)"),
     only_agencies: bool = typer.Option(True, "--only-agencies/--all-industries",
                                        help="jobs: keep marketing, ad, design and media agencies only"),
 ):
     """import a lead csv. dedupes by email and domain, checks suppression."""
+    if source == "prewritten":
+        from .pipeline import import_csv
+        r = import_csv(_conn(), CONFIG_DIR, path, "prewritten")
+        typer.echo(f"read {r['rows']}, added {r['added']} leads with their 4 emails, rejected {r['rejected']}")
+        typer.echo("next: engine build-batch (free email check), then the app or engine run --live")
+        return
     if source not in ("clay", "jobs"):
-        raise typer.BadParameter("--source is clay or jobs")
+        raise typer.BadParameter("--source is clay, jobs or prewritten")
     conn = _conn()
     jobs_src = None
     if source == "jobs":
