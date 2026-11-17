@@ -1,0 +1,21 @@
+# job-board csv export (e.g. 24hrs_244_jobs.csv): one row per decision maker at a hiring company.
+# matching ignores case, spaces, underscores and dashes.
+first_name: [first name]
+last_name: [last name]
+title: [job title]
+email: [work email]
+linkedin_url: [linkedin url]
+company_name: [company name, enrich company]
+company_domain: [domain]
+company_linkedin_url: [url]
+industry: [industry]
+headcount: [employee count]
+size: [size]
+person_location: [location]
+job_role: [job role]
+job_post: [job post]
+
+# only these industries are kept with --only-agencies (default on). they buy client acquisition.
+agency_industries: [advertising services, marketing services, design services, media production, graphic design,
+                    business consulting and services, strategic management services,
+                    public relations and communications services]

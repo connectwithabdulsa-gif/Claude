@@ -44,6 +44,8 @@ def mailbox_cap(mb: dict, day: date, ramp: dict, assume_warm: bool = False) -> i
     live_d = date.fromisoformat(live[:10])
     if day < live_d and not assume_warm:
         return 0
+    if mb.get("fixed_cap"):                      # abdul's set daily number for a mature mailbox, no ramp
+        return int(mb["fixed_cap"])
     weeks = max(0, (day - live_d).days // 7) if day >= live_d else 0
     return min(ramp["start"] + ramp["weekly_increase"] * weeks, ramp["cap"], mb["daily_cap"] or ramp["cap"])
 
@@ -162,8 +164,16 @@ def plan_and_send(conn, cfg: dict, day: date, sender, rng: random.Random, assume
 
     # pass 2: per mailbox, send in order of when each recipient's window opens, spaced by jitter
     picked.sort(key=lambda x: (x[0]["id"], x[6]))
+    lo, hi = w["jitter_minutes"]
+    window_min = (w["end_hour"] - w["start_hour"]) * 60
+    scale = {}
+    for mb_id in {p[0]["id"] for p in picked}:
+        n = sum(1 for p in picked if p[0]["id"] == mb_id)
+        # big caps (300 a day) would not fit the window at 3 to 8 minutes: shrink the gap, keep it random
+        scale[mb_id] = min(1.0, window_min * 0.9 / (n * (lo + hi) / 2)) if n else 1.0
+    min_gap = w.get("min_gap_seconds", 45) / 60
     for mb, kind, job, lead, company, tz, ws, we in picked:
-        gap = timedelta(minutes=rng.uniform(*w["jitter_minutes"]))
+        gap = timedelta(minutes=max(min_gap, rng.uniform(lo, hi) * scale[mb["id"]]))
         t = max(ws, (cursor[mb["id"]] + gap) if cursor[mb["id"]] else ws + gap)
         if t > we:
             _skip(plan, "outside recipient business hours today")

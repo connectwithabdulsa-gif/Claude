@@ -276,7 +276,7 @@ MIGRATIONS = {
     "sequence_state": {"paused_until": "TEXT"},
     "sends": {"lead_id": "INTEGER", "step": "INTEGER", "message_id_header": "TEXT", "outcome": "TEXT",
               "outcome_at": "TEXT", "headers_json": "TEXT", "attempts": "INTEGER", "error": "TEXT"},
-    "mailboxes": {"live_from": "TEXT"},
+    "mailboxes": {"live_from": "TEXT", "fixed_cap": "INTEGER"},
     "domains": {"blocklisted": "TEXT", "dns_report": "TEXT"},
     "messages": {"status": "TEXT", "model": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
                  "cost_usd": "REAL", "uses_fallback": "INTEGER", "facts_json": "TEXT", "signal_class": "TEXT",

@@ -3,6 +3,14 @@
 # industry, name or description. strong = 15 points, weak = 8 points.
 # NAICS codes are the public 2017 standard.
 
+creative_agency:
+  label: marketing or creative agency
+  plural: agencies
+  target_description: companies that look like your best clients
+  keywords_strong: [advertising services, marketing services, design services, media production, graphic design,
+                    creative agency, branding agency, digital agency, marketing agency, advertising agency]
+  keywords_weak: [public relations and communications services, business consulting and services, strategic management services]
+
 amazon_agency:
   label: amazon agency
   plural: amazon agencies

@@ -57,6 +57,14 @@ classes:
     matters: "growth hires usually mean pipeline is a priority right now."
     short: "{company} is hiring {a_role_title}"
 
+  hiring_delivery:            # an agency hiring designers, editors, content people (jobs csv)
+    strength: medium
+    window_days: 30
+    sources: [hiring_delivery_role]
+    saw: "saw {company} is hiring {a_role_title}."
+    matters: "more people on delivery means you need more clients coming in to keep them busy."
+    short: "{company} is hiring {a_role_title}"
+
   outbound_tool:
     strength: medium
     window_days: null

@@ -8,6 +8,7 @@ sequence:                       # day offsets from email 1
 min_gap_days: 3                 # never shorter, even if a day was skipped
 
 require_approval: true          # email 1 must be approved in `engine review` before it can be scheduled
+auto_approve_template: true     # template emails (approved copy) that pass every rule check are approved automatically
 
 ramp:                           # per mailbox, per day
   warmup_days: 21               # no real prospects before this
@@ -21,6 +22,7 @@ window:
   first_email_days: [tue, wed, thu]     # new sequences start tuesday to thursday
   followup_days: [mon, tue, wed, thu, fri]
   jitter_minutes: [3, 8]        # random gap between two sends from the same mailbox
+  min_gap_seconds: 45           # when a big daily cap squeezes the gap, never closer than this
 
 one_active_per_company: true    # never two people at one company in sequence at the same time
 
@@ -54,6 +56,8 @@ live:                           # phase 8, the runner (`engine run --live`, cron
   lock_file: data/run.lock      # two ticks never overlap
   smtp_port: 465                # Spacemail: 465 SSL (587 STARTTLS also listed)
   imap_port: 993
-  max_per_tick_per_mailbox: 1   # with a 5 minute cron this keeps sends spread out
+  max_per_tick_per_mailbox: auto  # auto = enough to reach the daily cap inside the window. sends still
+                                  # only go at their own queued time slot, so they stay spread out
+  tick_minutes: 5                 # how often the cron runs (for the auto number above)
   max_attempts: 5               # temporary failures are retried next tick, then marked failed
   dns_max_age_hours: 24         # `engine deliverability` must have passed within this window

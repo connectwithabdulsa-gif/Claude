@@ -41,14 +41,27 @@ def _conn():
 @app.command("import")
 def import_cmd(
     path: Path = typer.Argument(..., exists=True, dir_okay=False, help="csv export"),
-    source: str = typer.Option("clay", help="source type. only 'clay' for now."),
+    source: str = typer.Option("clay", help="clay (Clay export) or jobs (job-board csv, one row per decision maker)"),
+    only_agencies: bool = typer.Option(True, "--only-agencies/--all-industries",
+                                       help="jobs: keep marketing, ad, design and media agencies only"),
 ):
     """import a lead csv. dedupes by email and domain, checks suppression."""
-    if source != "clay":
-        raise typer.BadParameter("only --source clay is supported right now")
+    if source not in ("clay", "jobs"):
+        raise typer.BadParameter("--source is clay or jobs")
     conn = _conn()
-    src = ClayCsvSource(path, load_column_map(CONFIG_DIR / "clay_columns.yaml"))
+    jobs_src = None
+    if source == "jobs":
+        from .ingest.jobs_csv import CachedJobsSource, JobsCsvSource, add_job_signals
+        jobs_src = JobsCsvSource(path, CONFIG_DIR / "jobs_columns.yaml", only_agencies)
+        src = CachedJobsSource(jobs_src)
+    else:
+        src = ClayCsvSource(path, load_column_map(CONFIG_DIR / "clay_columns.yaml"))
     r = run_import(conn, src)
+    if jobs_src is not None:
+        n = add_job_signals(conn, r, jobs_src)
+        for reason, k in jobs_src.skipped.most_common():
+            typer.echo(f"  filtered         {reason:<36} {k}")
+        typer.echo(f"  job signals      {n} (each with its job post link and today's date)")
     typer.echo(f"import #{r.import_id} from {path.name}")
     typer.echo(f"  rows read        {r.rows_read}")
     typer.echo(f"  leads added      {r.leads_added}")
@@ -422,6 +435,7 @@ def mailbox_add(
     aged: bool = typer.Option(False, "--aged", help="an existing work mailbox already in real use: no warmup wait,"
                               " the ramp starts today (10 a day, +5 a week)"),
     daily_cap: int = typer.Option(30, help="hard ceiling for this mailbox"),
+    cap: int = typer.Option(None, help="fixed sends a day, no ramp (mature mailbox). e.g. --cap 300"),
 ):
     """add a sending mailbox. refuses the main domain (CLAUDE.md hard rule 2)."""
     import yaml as _y
@@ -433,8 +447,10 @@ def mailbox_add(
     blocked = set(sender_cfg.get("main_domains") or [])
     override = is_override(sender_cfg, address)
     if override:
-        daily_cap = min(daily_cap, int(sender_cfg["main_domain_override"].get("max_per_day", 10)))
-        typer.echo(f"main domain override (abdul's call): safe mode, max {daily_cap} a day")
+        mx = int(sender_cfg["main_domain_override"].get("max_per_day", 10))
+        cap = min(cap or mx, mx)
+        daily_cap = max(daily_cap, cap)
+        typer.echo(f"main domain override (abdul's call): {cap} a day, auto pause on bounces or complaints")
     elif dom in blocked or dom in ("gmail.com", "googlemail.com"):
         raise typer.BadParameter(f"{dom} is a main domain or personal gmail. cold email only from secondary domains")
     conn.execute("INSERT OR IGNORE INTO domains (domain) VALUES (?)", (dom,))
@@ -443,10 +459,29 @@ def mailbox_add(
     if not warmup_start and not aged:
         raise typer.BadParameter("give --warmup-start YYYY-MM-DD for a new mailbox, or --aged for one already in use")
     live_from = _d.today().isoformat() if aged else None
-    conn.execute("INSERT OR IGNORE INTO mailboxes (address, domain_id, warmup_started_at, daily_cap, live_from)"
-                 " VALUES (?,?,?,?,?)", (address.lower(), did, warmup_start, daily_cap, live_from))
+    if cap:
+        daily_cap = max(daily_cap, cap)
+    conn.execute("INSERT OR IGNORE INTO mailboxes (address, domain_id, warmup_started_at, daily_cap, live_from,"
+                 " fixed_cap) VALUES (?,?,?,?,?,?)", (address.lower(), did, warmup_start, daily_cap, live_from, cap))
     conn.commit()
-    typer.echo(f"mailbox {address} added, " + (f"aged, ramp starts {live_from}" if aged else f"warmup from {warmup_start}"))
+    typer.echo(f"mailbox {address} added, " + (f"{cap} a day, no ramp" if cap else
+               f"aged, ramp starts {live_from}" if aged else f"warmup from {warmup_start}"))
+
+
+@mailbox_app.command("set-cap")
+def mailbox_set_cap(address: str, cap: int = typer.Argument(..., min=0, max=500, help="sends a day, 0 = back to the ramp")):
+    """set a fixed daily number for a mature mailbox (no ramp). Spacemail's own limit is 500 an hour."""
+    import yaml as _y
+    from .send.runner import is_override
+    sender_cfg = _y.safe_load((CONFIG_DIR / "sender.yaml").read_text()) or {}
+    if is_override(sender_cfg, address):
+        cap = min(cap, int(sender_cfg["main_domain_override"].get("max_per_day", 10)))
+    conn = _conn()
+    n = conn.execute("UPDATE mailboxes SET fixed_cap=?, daily_cap=MAX(daily_cap, ?) WHERE address=?",
+                     (cap or None, cap, address.lower())).rowcount
+    log_event(conn, "mailbox_cap_set", "mailbox", address, None, cap=cap)
+    conn.commit()
+    typer.echo(f"{address}: {cap or 'ramp'} a day" if n else f"no mailbox {address}. engine mailboxes add first")
 
 
 @mailbox_app.command("list")
@@ -535,6 +570,36 @@ def deliverability(domain: str = typer.Option(None, help="one domain (default: e
         bad += 0 if rep.ok else 1
     conn.commit()
     raise typer.Exit(1 if bad else 0)
+
+
+@app.command("build-batch")
+def build_batch(
+    limit: int = typer.Option(500, help="max emails to write this run"),
+    offline: bool = typer.Option(False, "--offline", help="skip the MX lookup during verify"),
+):
+    """the whole morning in one go: signals, verify, score, pick, write with the approved templates.
+    template emails that pass every rule are approved automatically (sending.yaml auto_approve_template)."""
+    from datetime import datetime, timezone
+    import yaml as _y
+    from .personalize import template_writer as tw, writer as w
+    conn = _conn()
+    today = datetime.now(timezone.utc)
+    scfg = ScoreConfig.load(CONFIG_DIR)
+    e = sig_engine.classify_and_expire(conn, scfg, today)
+    v = verify_leads(conn, LocalVerifier(offline=offline), only_unverified=True)
+    s = score_all(conn, scfg)
+    p = sig_engine.pick_all(conn, scfg, today)
+    cfg = w.load_cfg(CONFIG_DIR)
+    auto = bool((_y.safe_load((CONFIG_DIR / "sending.yaml").read_text()) or {}).get("auto_approve_template", False))
+    leads_ = w.eligible_leads(conn, ["A", "B", "C"], limit)
+    r = tw.write_batch(conn, cfg, CONFIG_DIR, leads_, today, auto)
+    typer.echo(f"signals   active {e['classified'] - e['expired']}, expired {e['expired']}")
+    typer.echo(f"verify    ok {v['ok']}  risky {v['risky']}  fail {v['fail']}")
+    typer.echo(f"score     A {s['A']}  B {s['B']}  C {s['C']}  dnc {s['dnc']}")
+    typer.echo(f"picks     with signal {p['with_signal']}, fallback {p['fallback']}")
+    typer.echo(f"written   ready {r['ready']}{' (auto approved)' if auto else ''}  held {r['held']}"
+               f"  no signal {r['no_signal']}  no template {r['no_template']}")
+    typer.echo("next: engine review --status held (why held), engine simulate --days 1 (dry run of the day)")
 
 
 @app.command("go-live")

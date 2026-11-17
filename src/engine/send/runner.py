@@ -124,6 +124,17 @@ def read_replies(conn, cfg, mb, rules, res: TickResult, imap_factory=None):
             res.alerts.append(f"new reply from {r.from_address} in {mb['address']} (engine replies inbox)")
 
 
+def per_tick_limit(cfg, mb) -> int:
+    lv, w = cfg["sending"]["live"], cfg["sending"]["window"]
+    v = lv.get("max_per_tick_per_mailbox", 1)
+    if v != "auto":
+        return int(v)
+    import math
+    ticks = max(1, (w["end_hour"] - w["start_hour"]) * 60 // lv.get("tick_minutes", 5))
+    cap = mb.get("fixed_cap") or mb.get("daily_cap") or 30
+    return math.ceil(cap / ticks) + 2
+
+
 def deliver(conn, cfg, mbs: dict, at: datetime, res: TickResult, smtp_factory=None):
     lv = cfg["sending"]["live"]
     due = [dict(r) for r in conn.execute("""SELECT s.*, m.subject, m.body FROM sends s JOIN messages m ON m.id=s.message_id
@@ -156,9 +167,10 @@ def deliver(conn, cfg, mbs: dict, at: datetime, res: TickResult, smtp_factory=No
                 res.waiting += 1             # goes out when their business hours open again
                 continue
             todo.append((s, lead))
-        rest = todo[lv["max_per_tick_per_mailbox"]:]
+        per_tick = per_tick_limit(cfg, mb)
+        rest = todo[per_tick:]
         res.waiting += len(rest)
-        todo = todo[: lv["max_per_tick_per_mailbox"]]
+        todo = todo[:per_tick]
         if not todo:
             continue
         try:

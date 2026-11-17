@@ -157,6 +157,7 @@ def test_mailbox_gates(conn, cfg, monkeypatch):
 
 def test_tick_queues_day_then_sends_one_per_tick_with_headers(conn, cfg):
     seed(conn)
+    cfg["sending"]["live"]["max_per_tick_per_mailbox"] = 1
     r1 = tick(conn, cfg)
     assert r1.planned == 2 and r1.sent == 1 and r1.waiting == 1
     msg = FakeSMTP.sent[0]

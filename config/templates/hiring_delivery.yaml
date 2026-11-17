@@ -1,0 +1,37 @@
+# email 1 templates for the jobs csv campaign (outreach/agency-hiring-campaign.md, approved copy).
+# placeholders come only from stored facts: {first_name} {company} {role} (job role from the post).
+# {saw} and {matters} are the signal lines from config/signals.yaml (hiring_delivery).
+# every filled email still runs the full rule check (50 to 90 words, one ask, banned words, names the company).
+# change the words here any time. no code change needed.
+
+variants:
+  v1:
+    subject: "{company} pipeline"
+    body: |
+      Hi {first_name},
+
+      {saw} {matters}
+
+      I build outbound systems in Clay for agencies. It finds companies that look like your best clients, writes to each one from a real reason, and sends from separate domains, so you only take the calls.
+
+      Want me to send the first 20 companies it would go after for {company}?
+  v2:
+    subject: "New clients for {company}"
+    body: |
+      Hi {first_name},
+
+      Saw the {role} post at {company}. Growing the team is the part you control. Filling their week with client work is harder when most new clients come from referrals.
+
+      I set up the system that finds the right companies, writes to them and sends it, so a second channel runs next to referrals.
+
+      Want the first 20 companies it would target for {company}?
+  v3:
+    subject: "Hiring at {company}"
+    body: |
+      Hi {first_name},
+
+      {saw} When agencies add delivery people, the gap is usually new client flow, not talent.
+
+      I build outbound systems in Clay that bring agencies new clients without the founder prospecting. Built and run for you.
+
+      Open to 15 minutes Tuesday or Wednesday to see if it fits?

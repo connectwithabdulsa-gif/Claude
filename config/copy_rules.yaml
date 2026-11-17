@@ -43,4 +43,4 @@ banned_patterns:
   - "\\bscal(e|es|ing)\\s+(your|the|up|their|our)\\b"
   - "\\bto scale\\b"
 # words allowed to start a sentence with a capital letter besides names in the facts
-proper_nouns: [Clay, Smartlead, Instantly, Apollo, LinkedIn, Miro, Amazon, SDR, BDR, AE, DFY]
+proper_nouns: [Clay, Smartlead, Instantly, Apollo, LinkedIn, Miro, Amazon, SDR, BDR, AE, DFY, Monday, Tuesday, Wednesday, Thursday, Friday]

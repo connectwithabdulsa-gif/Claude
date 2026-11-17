@@ -55,6 +55,10 @@ engine deliverability                     # MX, SPF, DKIM, DMARC, blocklists. mu
 engine mailboxes test you@x.com --to me@gmail.com --live   # one test email to your own inbox
 engine go-live                            # after abdul's ok in chat. creates data/live_ok
 engine run                                # dry view of every gate. --live = one real tick (cron every 5 min)
+engine import jobs.csv --source jobs      # job-board csv: agencies only, 1 decision maker per company, job post = signal
+engine build-batch                        # signals, verify, score, pick, write from config/templates (auto approve on rule pass)
+engine mailboxes add you@x.com --aged --cap 300   # mature mailbox: fixed sends a day, no ramp
+engine mailboxes set-cap you@x.com 300
 engine stop / engine start                # kill switch
 ```
 

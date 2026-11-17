@@ -29,7 +29,7 @@ This file is the project brain. Read it fully at the start of every session, the
 ## 3. Hard rules (never break these)
 
 1. DRY RUN by default. Nothing is sent, posted or written to an outside service unless the command has an explicit `--live` flag AND Abdul approved it in chat in this session.
-2. Never send cold email from Abdul's main Gmail or main domain. Cold sending uses separate secondary domains and mailboxes only. (Exception Abdul chose in chat, Nov 2026: abdul@dfygtmsystems.com in safe mode, max 10 a day, set in `config/sender.yaml` `main_domain_override`. Moving to a secondary domain is still recommended.)
+2. Never send cold email from Abdul's main Gmail or main domain. Cold sending uses separate secondary domains and mailboxes only. (Exception Abdul chose in chat, Nov 2026: abdul@dfygtmsystems.com, up to 300 a day (Abdul, Nov 17, mature mailbox, no ramp), auto pause on bounces or complaints, set in `config/sender.yaml` `main_domain_override`. Moving to a secondary domain is still recommended.)
 3. No LinkedIn automation of any kind. The LinkedIn module only produces a daily list for Abdul to send by hand (max 20 new connection requests per day).
 4. Never auto reply to a human. Draft replies and wait for approval. Exception: honoring an unsubscribe, which is automatic and immediate.
 5. Never invent facts about a prospect. Every personalized claim must trace to a real data field with a source and a date. If the data is weak, use the plain fallback line.
