@@ -1,5 +1,10 @@
 {% extends "base.html" %}{% block body %}
 <h1>Leads</h1><p class="sub">Upload a CSV. The app keeps the right people, writes each email from your approved copy and checks every rule.</p>
+{% if job and job.running %}
+<meta http-equiv="refresh" content="4">
+<div class="card" style="margin-bottom:16px"><h2>Working on {{ job.file }}...</h2>
+  <p>{{ job.step }} ({{ elapsed }}s). This page refreshes by itself. You can leave it open or use other tabs.</p></div>
+{% endif %}
 <form class="card drop" method="post" enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="file" name="csv" accept=".csv" required>

@@ -37,6 +37,17 @@ def client(tmp_path, monkeypatch):
     from engine.app.server import create_app
     app = create_app(config_dir=cfg_dir, root=tmp_path, worker=None)
     app.config["TESTING"] = True
+    good = {"MX": ["0 mx1.spacemail.com."], "TXT": ["v=spf1 include:spf.spacemail.com ~all"]}
+
+    def fake_dns(name, rtype):           # no real DNS in tests: a domain set up like Abdul's
+        if name.startswith("spacemail._domainkey."):
+            return ["v=DKIM1; k=rsa; p=MIIB"]
+        if name.startswith("_dmarc."):
+            return ["v=DMARC1; p=none"]
+        if rtype == "A":
+            return None
+        return good.get(rtype)
+    app.config["DNS_LOOKUP"] = fake_dns
     c = app.test_client()
     c.get("/")
     c.cfg_dir, c.root = cfg_dir, tmp_path
@@ -144,3 +155,13 @@ def test_pages_wait_for_a_busy_writer_instead_of_failing(client):
     r2 = client.post("/stop", data={"csrf": csrf(client)}, follow_redirects=True)
     t.join()
     assert r1.status_code == 200 and r2.status_code == 200 and time.time() - t0 >= 1.0
+
+
+
+def test_save_mailbox_checks_dns_and_start_works_without_the_button(client):
+    r = client.post("/settings", data={"csrf": csrf(client), "act": "save", "address": "abdul@dfygtmsystems.com",
+                                       "password": "pw", "cap": "300", "physical_address": "1 Test St, Karachi"},
+                    follow_redirects=True)
+    assert b"DNS PASS" in r.data
+    r = client.post("/start", data={"csrf": csrf(client)}, follow_redirects=True)
+    assert b"Sending is ON" in r.data

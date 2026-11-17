@@ -10,7 +10,7 @@ from ..send import runner
 from ..sequence import scheduler as sch
 
 
-def refresh_dns(conn, max_age_h: int = 20, lookup=None) -> int:
+def refresh_dns(conn, max_age_h: int = 20, lookup=None, dns_lookup=None) -> int:
     """re-check each sending domain once a day, so the 24h DNS gate never blocks a running app."""
     from ..normalize import norm_domain
     from ..send import dns_check
@@ -20,7 +20,7 @@ def refresh_dns(conn, max_age_h: int = 20, lookup=None) -> int:
         row = conn.execute("SELECT checked_at FROM domains WHERE domain=?", (d,)).fetchone()
         if row and row["checked_at"] and (now_dt - datetime.fromisoformat(row["checked_at"])).total_seconds() < max_age_h * 3600:
             continue
-        dns_check.save(conn, dns_check.check_domain(d, lookup))
+        dns_check.save(conn, dns_check.check_domain(d, lookup or dns_lookup))
         n += 1
     conn.commit()
     return n

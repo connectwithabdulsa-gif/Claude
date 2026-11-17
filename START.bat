@@ -18,7 +18,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo Checking the parts DFY Sender needs...
-".venv\Scripts\python.exe" -m pip install --disable-pip-version-check flask typer pyyaml dnspython > install-log.txt 2>&1
+".venv\Scripts\python.exe" -m pip install --disable-pip-version-check flask typer pyyaml dnspython waitress > install-log.txt 2>&1
 if errorlevel 1 (
   echo.
   echo Install failed. The full error is in install-log.txt in this folder.

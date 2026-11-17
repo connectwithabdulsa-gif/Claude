@@ -21,6 +21,9 @@ from ..send import spacemail as sm
 from ..sequence import scheduler as sch
 
 
+JOB: dict = {}          # the csv being processed in the background (one at a time)
+
+
 def _conn():
     return connect(db_path())         # read mostly. the suppression csv loads once at startup
 
@@ -164,6 +167,8 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
     @app.post("/start")
     def start():
         conn, c = _conn(), cfg()
+        from .worker import refresh_dns
+        refresh_dns(conn, dns_lookup=app.config.get("DNS_LOOKUP"))   # never "not checked" when you press Start
         blockers = [i for i in checklist(conn, c)[:-1] if not i["ok"] and "waiting to start" not in i["label"]]
         if blockers:
             conn.close()
@@ -200,6 +205,29 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
         flash("Checking now. Refresh in a few seconds.", "good")
         return redirect(url_for("dashboard"))
 
+    def _process_upload(dest, source, only_agencies):
+        """runs in the background so the page never hangs on a big csv (email checks take a while)."""
+        from ..pipeline import build_batch, import_csv
+        JOB.clear()
+        JOB.update(running=True, file=dest.name, started=time.time(), step="importing rows", msg="", ok=True)
+        try:
+            conn = connect(db_path())
+            r = import_csv(conn, config_dir, dest, source, only_agencies)
+            JOB["step"] = f"checking {r['added']} email addresses and writing emails"
+            b = build_batch(conn, config_dir)
+            conn.close()
+            w = b["written"]
+            JOB["msg"] = (f"{r['rows']} rows read, {r['added']} new leads"
+                          + (", filtered: " + ", ".join(f"{k} {v}" for k, v in r["filtered"].items()) if r["filtered"] else "")
+                          + (", skipped: " + ", ".join(f"{k} {v}" for k, v in r["rejected"].items()) if r["rejected"] else "")
+                          + (f". {r['prewritten']} people with your own 4 emails, approved" if r.get("prewritten") else "")
+                          + (f". Emails written: {w['ready']} ready, {w['held']} held" if not r.get("prewritten") else "")
+                          + f". Email check: {b['verify']['ok'] + b['verify']['risky']} ok, {b['verify']['fail']} bad (skipped).")
+        except Exception as e:  # noqa: BLE001
+            JOB.update(ok=False, msg=f"{type(e).__name__}: {e}")
+        finally:
+            JOB["running"] = False
+
     @app.route("/leads", methods=["GET", "POST"])
     def leads():
         from ..pipeline import build_batch, import_csv
@@ -217,17 +245,20 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
             with dest.open(encoding="utf-8-sig", errors="replace") as fh:
                 if "email1 body" in fh.readline().lower():      # whole sequence already written: send as is
                     source = "prewritten"
-            r = import_csv(conn, config_dir, dest, source,
-                           request.form.get("only_agencies") == "on")
-            b = build_batch(conn, config_dir)
-            w = b["written"]
-            flash(f"{r['rows']} rows kept, {r['added']} new leads"
-                  + (", filtered: " + ", ".join(f"{k} {v}" for k, v in r["filtered"].items()) if r["filtered"] else "")
-                  + (", skipped: " + ", ".join(f"{k} {v}" for k, v in r["rejected"].items()) if r["rejected"] else "")
-                  + (f". {r['prewritten']} people with your own 4 emails, approved" if r.get("prewritten") else "")
-                  + f". Emails written: {w['ready']} ready{' and approved' if b['auto_approve'] else ''},"
-                    f" {w['held']} held for you to check.", "good")
+            conn.close()
+            if JOB.get("running"):
+                flash("Another CSV is still being processed. Wait for it to finish.", "bad")
+                return redirect(url_for("leads"))
+            args = (dest, source, request.form.get("only_agencies") == "on")
+            if app.config.get("TESTING"):
+                _process_upload(*args)
+            else:
+                import threading
+                threading.Thread(target=_process_upload, args=args, daemon=True).start()
             return redirect(url_for("leads"))
+        if JOB and not JOB.get("running") and JOB.get("msg") and not JOB.get("shown"):
+            flash(("Done: " if JOB["ok"] else "Upload failed: ") + JOB["msg"], "good" if JOB["ok"] else "bad")
+            JOB["shown"] = True
         rows = [dict(r) for r in conn.execute(
             """SELECT l.id, l.first_name, l.last_name, l.email, l.title, l.tier, l.status, l.verify_status,
                       c.name AS company, p.saw_line, m.review, m.status AS mstatus, st.step_done, st.status AS sstatus
@@ -237,7 +268,8 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
                LEFT JOIN sequence_state st ON st.lead_id=l.id
                ORDER BY l.id DESC LIMIT 500""")]
         conn.close()
-        return render_template("leads.html", rows=rows)
+        return render_template("leads.html", rows=rows, job=JOB,
+                               elapsed=int(time.time() - JOB.get("started", time.time())))
 
     @app.route("/emails", methods=["GET", "POST"])
     def emails():
@@ -300,6 +332,13 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
                     except ValueError:
                         cap = 300
                     flash(ensure_mailbox(conn, scfg, addr, cap), "good")
+                    rep = dns_check.check_domain(norm_domain(addr), app.config.get("DNS_LOOKUP"))
+                    dns_check.save(conn, rep)
+                    conn.commit()
+                    flash("DNS " + ("PASS: SPF, DKIM, DMARC all found." if rep.ok else
+                                    "problem: " + "; ".join(f"{k} {v[1]}" for k, v in rep.checks.items()
+                                                            if v[0] != "ok" and k != "blocklists")),
+                          "good" if rep.ok else "bad")
                     pw = request.form.get("password", "")
                     if pw:
                         set_env_value(root / ".env", sm.env_key(addr), pw)
@@ -361,4 +400,9 @@ def main(port: int = 8765, open_browser: bool = True) -> None:
     if open_browser:
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     print(f"DFY Sender running at {url}  (keep this window open, close it to stop)")
-    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    try:
+        from waitress import serve        # a proper server: no "development server" warning
+        serve(app, host="127.0.0.1", port=port, threads=8, _quiet=True)
+    except ImportError:
+        os.environ.setdefault("FLASK_SKIP_DOTENV", "1")
+        app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
