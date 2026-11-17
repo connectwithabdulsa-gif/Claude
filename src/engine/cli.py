@@ -579,20 +579,10 @@ def build_batch(
 ):
     """the whole morning in one go: signals, verify, score, pick, write with the approved templates.
     template emails that pass every rule are approved automatically (sending.yaml auto_approve_template)."""
-    from datetime import datetime, timezone
-    import yaml as _y
-    from .personalize import template_writer as tw, writer as w
+    from .pipeline import build_batch as _bb
     conn = _conn()
-    today = datetime.now(timezone.utc)
-    scfg = ScoreConfig.load(CONFIG_DIR)
-    e = sig_engine.classify_and_expire(conn, scfg, today)
-    v = verify_leads(conn, LocalVerifier(offline=offline), only_unverified=True)
-    s = score_all(conn, scfg)
-    p = sig_engine.pick_all(conn, scfg, today)
-    cfg = w.load_cfg(CONFIG_DIR)
-    auto = bool((_y.safe_load((CONFIG_DIR / "sending.yaml").read_text()) or {}).get("auto_approve_template", False))
-    leads_ = w.eligible_leads(conn, ["A", "B", "C"], limit)
-    r = tw.write_batch(conn, cfg, CONFIG_DIR, leads_, today, auto)
+    out = _bb(conn, CONFIG_DIR, offline, limit)
+    e, v, s, p, r, auto = (out[k] for k in ("signals", "verify", "score", "picks", "written", "auto_approve"))
     typer.echo(f"signals   active {e['classified'] - e['expired']}, expired {e['expired']}")
     typer.echo(f"verify    ok {v['ok']}  risky {v['risky']}  fail {v['fail']}")
     typer.echo(f"score     A {s['A']}  B {s['B']}  C {s['C']}  dnc {s['dnc']}")
@@ -600,6 +590,13 @@ def build_batch(
     typer.echo(f"written   ready {r['ready']}{' (auto approved)' if auto else ''}  held {r['held']}"
                f"  no signal {r['no_signal']}  no template {r['no_template']}")
     typer.echo("next: engine review --status held (why held), engine simulate --days 1 (dry run of the day)")
+
+
+@app.command("app")
+def app_cmd(port: int = typer.Option(8765), no_browser: bool = typer.Option(False, "--no-browser")):
+    """DFY Sender: the dashboard in your browser (upload CSV, emails, inbox, Start/Stop). keep it open to send."""
+    from .app.server import main
+    main(port, open_browser=not no_browser)
 
 
 @app.command("go-live")

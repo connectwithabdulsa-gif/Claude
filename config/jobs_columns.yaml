@@ -17,5 +17,5 @@ job_post: [job post]
 
 # only these industries are kept with --only-agencies (default on). they buy client acquisition.
 agency_industries: [advertising services, marketing services, design services, media production, graphic design,
-                    business consulting and services, strategic management services,
+                    business consulting and services,
                     public relations and communications services]

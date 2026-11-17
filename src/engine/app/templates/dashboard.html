@@ -1,0 +1,54 @@
+{% extends "base.html" %}{% block body %}
+<div class="card status">
+  <div>
+    <h1>{% if on %}Sending is ON{% else %}Sending is OFF{% endif %}
+      {% if on %}<span class="pill good">running</span>{% else %}<span class="pill warn">stopped</span>{% endif %}</h1>
+    <p class="sub" style="margin:0">
+      {% if on %}Emails go out inside each prospect's 9 to 5, spread through the day. Keep this window open.
+      {% else %}Nothing is being sent. Press Start when the checklist is green.{% endif %}
+      {% if worker and worker.last_run %}<br><span class="small">Last check {{ worker.last_run[11:16] }} UTC{% if next_in is not none %}, next in {{ next_in // 60 }} min{% endif %}.</span>{% endif %}
+    </p>
+  </div>
+  <div>
+    {% if on %}
+      <form method="post" action="{{ url_for('stop') }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn big red">Stop sending</button></form>
+    {% else %}
+      <form method="post" action="{{ url_for('start') }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn big">Start sending</button></form>
+    {% endif %}
+    <form method="post" action="{{ url_for('run_now') }}" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost">Check now</button></form>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:16px">
+  <div class="card kpi"><div class="n">{{ s.sent_today }} / {{ s.cap }}</div><div class="l">Sent today / daily cap</div></div>
+  <div class="card kpi"><div class="n">{{ s.queued }}</div><div class="l">Queued for today</div></div>
+  <div class="card kpi"><div class="n">{{ s.replies }}</div><div class="l">Replies ({{ s.reply_rate }}% of people)</div></div>
+  <div class="card kpi"><div class="n">{{ s.bounce_pct }}%</div><div class="l">Bounce rate, last 200 (pauses at 3%)</div></div>
+  <div class="card kpi"><div class="n">{{ s.in_sequence }}</div><div class="l">People in sequence</div></div>
+  <div class="card kpi"><div class="n">{{ s.leads }}</div><div class="l">Leads total</div></div>
+</div>
+
+<div class="row">
+  <div class="card"><h2>Last 14 days</h2>
+    <div class="chart">{% for d in s.days %}<div class="c" title="{{ d.day }}: {{ d.sent }} sent, {{ d.replies }} replies">
+      {% if d.replies %}<span class="r">{{ d.replies }}</span>{% endif %}
+      <div class="b" style="height:{{ d.h }}%"></div><span class="d">{{ d.day[3:] }}</span></div>{% endfor %}</div>
+    <p class="hint">Bars are emails sent. Green numbers are replies.</p>
+  </div>
+  <div class="card"><h2>Checklist</h2>
+    <ul class="check">{% for i in items %}<li><span class="i {{ 'ok' if i.ok else 'no' }}">{{ '✓' if i.ok else '✕' }}</span>
+      <div>{{ i.label }}{% if not i.ok and i.fix %}<div class="fix">{{ i.fix }}</div>{% endif %}</div></li>{% endfor %}</ul>
+  </div>
+</div>
+
+<div class="row">
+  <div class="card"><h2>Mailboxes</h2>
+    <table><tr><th>Mailbox</th><th>Daily cap</th><th>Status</th></tr>
+    {% for m in s.mailboxes %}<tr><td>{{ m.address }}</td><td>{{ m.fixed_cap or m.daily_cap }}</td>
+      <td>{% if m.paused %}<span class="pill bad">paused</span> <span class="small muted">{{ m.pause_reason }}</span>{% else %}<span class="pill good">ok</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="3" class="muted">No mailbox yet. Add one in Settings.</td></tr>{% endfor %}</table>
+    {% if worker and worker.last_lines %}<h2 style="margin-top:16px">Last check</h2><div class="log">{% for l in worker.last_lines %}{{ l }}<br>{% endfor %}</div>{% endif %}
+  </div>
+  <div class="card"><h2>Activity</h2><div class="log">{% for e in s.events %}{{ e.ts[5:16] }} {{ e.action }} {{ e.entity_id or '' }} {{ (e.reason or '')[:60] }}<br>{% else %}No activity yet.{% endfor %}</div></div>
+</div>
+{% endblock %}

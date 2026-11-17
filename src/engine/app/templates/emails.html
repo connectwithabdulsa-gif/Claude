@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block body %}
+<h1>Emails</h1><p class="sub">First emails. Approved ones go out when sending is on. Held ones broke a rule, with the reason.</p>
+<div class="tabs">
+  <a href="{{ url_for('emails', tab='approved') }}" class="{{ 'on' if tab=='approved' }}">Approved ({{ counts.approved }})</a>
+  <a href="{{ url_for('emails', tab='pending') }}" class="{{ 'on' if tab=='pending' }}">Waiting ({{ counts.pending }})</a>
+  <a href="{{ url_for('emails', tab='held') }}" class="{{ 'on' if tab=='held' }}">Held ({{ counts.held }})</a>
+  {% if counts.pending %}<form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="act" value="approve_all"><button class="btn small">Approve all waiting</button></form>{% endif %}
+</div>
+{% for r in rows %}<div class="card mail-card">
+  <div class="mail-head"><div><strong>{{ r.subject }}</strong> <span class="small muted">to {{ r.first_name }} at {{ r.company }} ({{ r.email }}), {{ r.variant }}</span></div>
+    <div>{% if r.review != 'approved' and r.status == 'ready' %}<form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ r.id }}"><input type="hidden" name="act" value="approve"><button class="btn small">Approve</button></form>{% endif %}
+    {% if r.review != 'held' %}<form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ r.id }}"><input type="hidden" name="act" value="hold"><button class="btn small ghost">Hold</button></form>{% endif %}</div></div>
+  {% if r.reasons %}<div class="small" style="color:var(--bad)">{{ r.reasons|join('; ') }}</div>{% endif %}
+  <div class="mail">{{ r.body }}</div>
+</div>{% else %}<p class="muted">Nothing here.</p>{% endfor %}
+{% endblock %}

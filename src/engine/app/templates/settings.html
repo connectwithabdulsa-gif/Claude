@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block body %}
+<h1>Settings</h1><p class="sub">Everything here is saved on this computer only. Your password never leaves it.</p>
+<div class="row">
+<form class="card" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="act" value="save">
+  <h2>Sending mailbox (Spacemail)</h2>
+  <label>Email address</label><input type="email" name="address" value="{{ mbs[0].address if mbs else '' }}" placeholder="you@yourdomain.com">
+  <label>Password</label><input type="password" name="password" placeholder="{{ '•••••••• saved' if mbs and mbs[0].has_password else 'your Spacemail password' }}" autocomplete="new-password">
+  <div class="hint">Leave empty to keep the saved one.</div>
+  <label>Emails per day</label><input type="number" name="cap" min="1" max="500" value="{{ (mbs[0].fixed_cap or mbs[0].daily_cap) if mbs else 300 }}">
+  <div class="hint">Spacemail allows up to 500 an hour. The app spreads them through each prospect's 9 to 5.</div>
+  <h2 style="margin-top:20px">Footer and alerts</h2>
+  <label>Mailing address (shown under every email, required by US law)</label><input type="text" name="physical_address" value="{{ scfg.physical_address if scfg.physical_address != '[ADD PHYSICAL ADDRESS]' else '' }}">
+  <label>Send alerts to (pauses, new replies)</label><input type="email" name="alerts_to" value="{{ scfg.alerts_to or '' }}">
+  <div style="margin-top:16px"><button class="btn">Save</button></div>
+</form>
+<div class="card"><h2>Checks</h2>
+  {% for m in mbs %}<p><strong>{{ m.address }}</strong><br>
+    Password {% if m.has_password %}<span class="pill good">saved</span>{% else %}<span class="pill bad">missing</span>{% endif %}
+    DNS {% if m.dns_ok %}<span class="pill good">pass</span>{% elif m.dns_ok is sameas false %}<span class="pill bad">fail</span>{% else %}<span class="pill warn">not checked</span>{% endif %}
+    {% if m.paused %}<span class="pill bad">paused: {{ m.pause_reason }}</span>{% endif %}</p>{% endfor %}
+  <form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="act" value="dns"><button class="btn ghost">Check DNS (SPF, DKIM, DMARC)</button></form>
+  <p class="hint">Needed before sending. Re-checked automatically every day while the app is open.</p>
+  <form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="act" value="test"><button class="btn ghost">Send a test email to me</button></form>
+  <p class="hint">Goes to the alerts address (or the mailbox itself). Check it lands in the inbox, not spam.</p>
+</div>
+</div>
+{% endblock %}

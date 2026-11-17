@@ -5,7 +5,14 @@ outbound pipeline for DFY GTM Systems. finds prospects, detects real signals, wr
 rules live in `CLAUDE.md` and `message-library.md`. the original build brief is in `docs/build-prompt.md`.
 live site: [dfygtmsystems.com](https://dfygtmsystems.com)
 
-## setup
+## easiest: DFY Sender app (no commands)
+1. On GitHub: Code > Download ZIP (branch `claude/abdul-dfy-gtm-offer-5yw80i`), unzip anywhere.
+2. Double click `START.bat` (Windows) or run `./start.sh` (Mac). First run installs itself (needs Python 3.11+).
+3. Your browser opens the dashboard: Settings (mailbox, password, cap, address), Leads (upload CSV),
+   Emails (approve), Inbox (replies), Dashboard (Start / Stop, numbers, checklist).
+Keep the black window open while sending. The password is saved only in `.env` on your computer.
+
+## setup (command line)
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"

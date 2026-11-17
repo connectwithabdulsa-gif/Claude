@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}
+<h1>Leads</h1><p class="sub">Upload a CSV. The app keeps the right people, writes each email from your approved copy and checks every rule.</p>
+<form class="card drop" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="file" name="csv" accept=".csv" required>
+  <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap">
+    <select name="source" style="width:auto"><option value="jobs">Job board CSV (hiring companies)</option><option value="clay">Clay export</option></select>
+    <label style="margin:0;font-weight:400"><input type="checkbox" name="only_agencies" checked> Agencies only</label>
+    <button class="btn">Upload and write emails</button>
+  </div>
+</form>
+<div class="card" style="margin-top:16px;overflow:auto">
+<table><tr><th>Company</th><th>Person</th><th>Why we write</th><th>Email 1</th><th>Sequence</th></tr>
+{% for r in rows %}<tr>
+  <td>{{ r.company or '' }}</td>
+  <td>{{ r.first_name or '' }} {{ r.last_name or '' }}<div class="small muted">{{ r.title or '' }}<br>{{ r.email }}</div></td>
+  <td class="small">{{ r.saw_line or '' }}</td>
+  <td>{% if r.review == 'approved' %}<span class="pill good">approved</span>{% elif r.review == 'held' %}<span class="pill bad">held</span>{% elif r.review %}<span class="pill warn">{{ r.review }}</span>{% elif r.tier == 'dnc' %}<span class="pill bad">do not contact</span>{% else %}<span class="muted small">none</span>{% endif %}</td>
+  <td class="small">{% if r.sstatus %}{{ r.sstatus }}, step {{ r.step_done }} of 4{% else %}<span class="muted">not started</span>{% endif %}</td>
+</tr>{% else %}<tr><td colspan="5" class="muted">No leads yet. Upload a CSV above.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

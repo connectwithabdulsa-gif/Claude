@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block body %}
+<h1>Inbox</h1><p class="sub">Replies from your Spacemail inbox. Anyone who replies is stopped automatically. Answer real people yourself in Spacemail, nothing is sent from here.</p>
+{% for r in rows %}<div class="card mail-card">
+  <div class="mail-head"><div><strong>{{ r.first_name or r.from_address }}</strong> {% if r.company %}at {{ r.company }}{% endif %}
+    <span class="small muted">{{ r.received_at[:16] }}</span>
+    {% if r.urgent %}<span class="pill bad">urgent</span>{% else %}<span class="pill warn">{{ r.group }}</span>{% endif %}
+    {% if r.category %}<span class="pill good">{{ r.category }}</span>{% endif %}</div></div>
+  <div class="mail">{{ r.body }}</div>
+  {% if r.draft %}<div class="small muted">Suggested reply</div><div class="mail">{{ r.draft }}</div>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ r.id }}"><input type="hidden" name="act" value="approve"><button class="btn small">Mark done</button></form>
+    <form method="post" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ r.id }}"><input type="hidden" name="act" value="hold"><button class="btn small ghost">Hold</button></form>{% endif %}
+</div>{% else %}<div class="card muted">No replies yet. They show up here within 5 minutes of landing in your Spacemail.</div>{% endfor %}
+{% endblock %}

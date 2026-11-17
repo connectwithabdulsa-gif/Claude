@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DFY Sender</title><link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}"></head>
+<body>
+<header class="top"><span class="logo">DFY Sender</span>
+<nav>
+<a href="{{ url_for('dashboard') }}" class="{{ 'on' if nav=='dashboard' }}">Dashboard</a>
+<a href="{{ url_for('leads') }}" class="{{ 'on' if nav=='leads' }}">Leads</a>
+<a href="{{ url_for('emails') }}" class="{{ 'on' if nav=='emails' }}">Emails</a>
+<a href="{{ url_for('inbox') }}" class="{{ 'on' if nav=='inbox' }}">Inbox</a>
+<a href="{{ url_for('settings') }}" class="{{ 'on' if nav=='settings' }}">Settings</a>
+</nav></header>
+<main>
+{% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}{% endwith %}
+{% block body %}{% endblock %}
+</main></body></html>

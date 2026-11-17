@@ -88,13 +88,13 @@ def mailbox_gate(conn, cfg: dict, mb: dict, at: datetime) -> str | None:
         return f"paused: {mb['pause_reason']}"
     d = conn.execute("SELECT * FROM domains WHERE domain=?", (dom,)).fetchone()
     if not d or not d["checked_at"]:
-        return "DNS never checked (engine deliverability)"
+        return "DNS never checked (Settings > Check DNS, or engine deliverability)"
     rep = json.loads(d["dns_report"] or "{}")
     if not rep.get("ok"):
-        return "DNS check failed (engine deliverability for details)"
+        return "DNS check failed: SPF, DKIM or DMARC missing (Settings > Check DNS shows which)"
     age = at - datetime.fromisoformat(d["checked_at"])
     if age > timedelta(hours=cfg["sending"]["live"]["dns_max_age_hours"]):
-        return f"DNS check is {int(age.total_seconds() // 3600)}h old (engine deliverability)"
+        return f"DNS check is {int(age.total_seconds() // 3600)}h old (Settings > Check DNS)"
     try:
         sm.password_for(mb["address"])
     except sm.MissingPassword as e:
