@@ -124,8 +124,8 @@ def test_refresh_dns_once_a_day(tmp_path, monkeypatch):
 
 def test_start_scripts_quote_paths():
     bat = (CONFIG_DIR.parent / "START.bat").read_text()
-    assert 'cd /d "%~dp0"' in bat and '".venv\\Scripts\\engine.exe" app' in bat
-    assert re.search(r"pip install .* -e \.", bat)
+    assert 'cd /d "%~dp0"' in bat and '-m engine app' in bat and 'PYTHONPATH=%~dp0src' in bat
+    assert "install-log.txt" in bat
 
 
 def test_pages_wait_for_a_busy_writer_instead_of_failing(client):
