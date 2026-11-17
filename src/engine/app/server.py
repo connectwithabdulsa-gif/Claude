@@ -2,6 +2,7 @@
 no sending logic lives here: every action calls the same engine code and gates as the CLI."""
 import json
 import os
+import sqlite3
 import re
 import secrets
 import time
@@ -21,10 +22,7 @@ from ..sequence import scheduler as sch
 
 
 def _conn():
-    conn = connect(db_path())
-    suppression.load_csv(conn, CONFIG_DIR / "suppression.csv")
-    conn.commit()                     # never hold a write lock between requests
-    return conn
+    return connect(db_path())         # read mostly. the suppression csv loads once at startup
 
 
 def _sender_cfg(config_dir: Path) -> dict:
@@ -129,6 +127,15 @@ def create_app(config_dir: Path = CONFIG_DIR, root: Path = ROOT, worker=None) ->
     app.secret_key = secrets.token_hex(16)            # new each start: sessions only live while the app runs
     app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
     load_dotenv(root / ".env")
+    c0 = connect(db_path())
+    suppression.load_csv(c0, config_dir / "suppression.csv")
+    c0.commit()
+    c0.close()
+
+    @app.errorhandler(sqlite3.OperationalError)
+    def busy(e):
+        return ("<p style='font:16px system-ui;padding:40px'>Busy sending right now. Wait 10 seconds and "
+                "<a href='javascript:location.reload()'>try again</a>.</p>", 503)
 
     def cfg():
         return sch.load_cfg(config_dir)

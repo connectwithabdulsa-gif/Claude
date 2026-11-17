@@ -126,3 +126,21 @@ def test_start_scripts_quote_paths():
     bat = (CONFIG_DIR.parent / "START.bat").read_text()
     assert 'cd /d "%~dp0"' in bat and '".venv\\Scripts\\engine.exe" app' in bat
     assert re.search(r"pip install .* -e \.", bat)
+
+
+def test_pages_wait_for_a_busy_writer_instead_of_failing(client):
+    import threading
+    import time
+    from engine.db import connect
+    from engine.paths import db_path
+    holder = connect(db_path())
+    assert holder.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    holder.execute("BEGIN IMMEDIATE")
+    holder.execute("INSERT INTO events (ts, action) VALUES ('x', 'hold')")
+    t = threading.Timer(1.5, lambda: (holder.commit(), holder.close()))
+    t.start()
+    t0 = time.time()
+    r1 = client.get("/leads")
+    r2 = client.post("/stop", data={"csrf": csrf(client)}, follow_redirects=True)
+    t.join()
+    assert r1.status_code == 200 and r2.status_code == 200 and time.time() - t0 >= 1.0

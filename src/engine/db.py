@@ -297,8 +297,13 @@ def _migrate(conn) -> None:
 def connect(path: Path | str) -> sqlite3.Connection:
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    # the app's sender thread and the page requests share one database file: wait for a lock
+    # instead of failing, and use WAL so readers never block the writer
+    conn = sqlite3.connect(str(path), timeout=60, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 60000")
+    if str(path) != ":memory:":
+        conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
     _migrate(conn)

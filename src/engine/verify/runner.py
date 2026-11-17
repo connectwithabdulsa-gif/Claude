@@ -11,7 +11,9 @@ def verify_leads(conn, verifier, only_unverified: bool = True) -> dict:
         q += " WHERE l.verify_status IS NULL"
     counts = {"ok": 0, "risky": 0, "fail": 0}
     ts = now()
-    for row in conn.execute(q).fetchall():
+    for i, row in enumerate(conn.execute(q).fetchall(), start=1):
+        if i % 20 == 0:
+            conn.commit()            # do not hold the write lock through many MX lookups
         r = verifier.verify(row["email"], row["company_domain"], row["email_status_source"])
         counts[r.status] = counts.get(r.status, 0) + 1
         conn.execute("UPDATE leads SET verify_status=?, verify_reason=?, verified_at=?, updated_at=? WHERE id=?",
